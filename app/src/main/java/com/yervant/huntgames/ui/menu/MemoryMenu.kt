@@ -296,7 +296,7 @@ fun ResetMatches() {
         val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "rm $fileName"))
         process.waitFor()
     }
-    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "rm $filenamepath*"))
+    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "rm -rf $filenamepath"))
     process.waitFor()
 }
 

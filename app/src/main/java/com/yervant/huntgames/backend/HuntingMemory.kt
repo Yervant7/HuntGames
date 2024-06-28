@@ -43,9 +43,12 @@ class HuntingMemory {
             process?.waitFor()
 
             val out = getLatestFile(filterdirPath)
-            val file = File(out)
+            val path = "$filterdirPath/$out"
+            val file = File(path)
             if (file.exists()) {
                 output.addAll(file.readLines())
+            } else {
+                Log.d("HuntingMemory", "file not exists: ${file.path}")
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -102,21 +105,21 @@ class HuntingMemory {
 
     fun searchInt(pid: Int, targetValue: Int, packageName: String): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-int $pid $targetValue $packageName $searchOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-int $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
         return currentFilteredAddresses
     }
 
     fun searchLong(pid: Int, targetValue: Long, packageName: String): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-long $pid $targetValue $packageName $searchOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-long $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
         return currentFilteredAddresses
     }
 
     fun searchFloat(pid: Int, targetValue: Float, packageName: String): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-float $pid $targetValue $packageName $searchOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-float $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
         return currentFilteredAddresses
     }
@@ -140,39 +143,36 @@ class HuntingMemory {
     }
 
     fun writeMemInt(pid: Int, addr: String, value: Int) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write $pid $addr $value > $writeOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-int $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
     fun writeMemLong(pid: Int, addr: String, value: Long) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write $pid $addr $value > $writeOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-long $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
     fun writeMemFloat(pid: Int, addr: String, value: Float) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write $pid $addr $value > $writeOutputPath"
+        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-float $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
-    fun getLatestFile(directory: String): String {
-        var latestFile = ""
+    private fun getLatestFile(directory: String): String {
         val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "ls -t $directory | head -1"))
         process.waitFor()
-        process.inputStream.bufferedReader().use { reader ->
-            reader.forEachLine { line ->
-                latestFile = line
-            }
+        val latestFile = process.inputStream.bufferedReader().use { reader ->
+            reader.readText()
         }
-        Log.d("HuntingMemory", "Latest file: $latestFile")
-        return latestFile
+        Log.d("HuntingMemory", "Latest file: ${latestFile.trim()}")
+        return latestFile.trim()
     }
 
     fun filterMemInt(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
-        val filteroutpath = getLatestFile(filterdirPath).trim()
+        val filteroutpath = getLatestFile(filterdirPath)
         val filePath = if (currentFilteredAddresses.isNotEmpty()) {
             filteroutpath
         } else {
@@ -185,7 +185,7 @@ class HuntingMemory {
 
     fun filterMemLong(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
-        val filteroutpath = getLatestFile(filterdirPath).trim()
+        val filteroutpath = getLatestFile(filterdirPath)
         val filePath = if (currentFilteredAddresses.isNotEmpty()) {
             filteroutpath
         } else {
@@ -198,7 +198,7 @@ class HuntingMemory {
 
     fun filterMemFloat(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
-        val filteroutpath = getLatestFile(filterdirPath).trim()
+        val filteroutpath = getLatestFile(filterdirPath)
         val filePath = if (currentFilteredAddresses.isNotEmpty()) {
             filteroutpath
         } else {
