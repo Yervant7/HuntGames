@@ -151,7 +151,7 @@ fun ProcessTable(
 
     CreateTable(modifier = Modifier.padding(16.dp),
         colNames = listOf("Pid", "Name", "Memory"),
-        colWeights = listOf(0.2f, 0.4f, 0.4f),
+        colWeights = listOf(0.2f, 0.5f, 0.3f),
         itemCount = processList.size,
         minEmptyItemCount = 50,
         onRowClicked = { rowIndex: Int ->
@@ -170,8 +170,8 @@ fun ProcessTable(
                 Text(text = processList[rowIndex].packageName)
             }
             if (colIndex == 2) {
-                val memoryInMB = processList[rowIndex].memory.toLong() / 1024 // Convert memory to KB
-                Text(text = "$memoryInMB KB")
+                val memoryInMB = processList[rowIndex].memory.toLong() / 1024 // Convert memory to MB
+                Text(text = "$memoryInMB MB")
             }
         })
 }
