@@ -31,7 +31,10 @@ import com.yervant.huntgames.backend.Hunt
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Memory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
@@ -95,12 +98,14 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                         val hunt = Hunt()
                         val isattc = isattached()
                         if (addressInfo.isFreezed.value) {
-                            hunt.freezeValueAtAddress(
-                                isattc.savepid(),
-                                addressInfo.matchInfo.address,
-                                newValue
-                            )
-                            hunt.setbool(true)
+                            GlobalScope.launch(Dispatchers.IO) {
+                                hunt.freezeValueAtAddress(
+                                    isattc.savepid(),
+                                    addressInfo.matchInfo.address,
+                                    newValue
+                                )
+                                hunt.setbool(true)
+                            }
                         } else {
                             hunt.writeValueAtAddress(
                                 isattc.savepid(),
@@ -209,12 +214,14 @@ fun SavedAddressesTable(
                                 val isattc = isattached()
                                 val pid = isattc.savepid()
                                 val value = ""
-                                hunt.freezeValueAtAddress(
-                                    pid,
-                                    savedAddressList[rowIndex].matchInfo.address,
-                                    value
-                                )
-                                hunt.setbool(true)
+                                GlobalScope.launch(Dispatchers.IO) {
+                                    hunt.freezeValueAtAddress(
+                                        pid,
+                                        savedAddressList[rowIndex].matchInfo.address,
+                                        value
+                                    )
+                                    hunt.setbool(true)
+                                }
                             } else {
                                 hunt.setbool(false)
                             }

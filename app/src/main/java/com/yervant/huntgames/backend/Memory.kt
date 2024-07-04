@@ -82,15 +82,13 @@ class Memory {
             val isAttached = isattached()
             val pid = isAttached.savepid()
             val hunt = HuntingMemory()
-            val process = Process()
-            val pkgname = process.getPackageNameByPid(pid.toString())
             val results: MutableList<Pair<String, String>> = mutableListOf()
 
             if (currentMatches.isEmpty()) {
                 val addresses = when (valtypeselected) {
-                    "int" -> hunt.searchInt(pid.toInt(), numValStr.toInt(), pkgname)
-                    "long" -> hunt.searchLong(pid.toInt(), numValStr.toLong(), pkgname)
-                    "float" -> hunt.searchFloat(pid.toInt(), numValStr.toFloat(), pkgname)
+                    "int" -> hunt.searchInt(pid, numValStr.toInt())
+                    "long" -> hunt.searchLong(pid, numValStr.toLong())
+                    "float" -> hunt.searchFloat(pid, numValStr.toFloat())
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
                 for (address in addresses) {
@@ -98,9 +96,9 @@ class Memory {
                 }
             } else {
                 val addresses = when (valtypeselected) {
-                    "int" -> hunt.filterMemInt(pid.toLong(), numValStr)
-                    "long" -> hunt.filterMemLong(pid.toLong(), numValStr)
-                    "float" -> hunt.filterMemFloat(pid.toLong(), numValStr)
+                    "int" -> hunt.filterMemInt(pid, numValStr)
+                    "long" -> hunt.filterMemLong(pid, numValStr)
+                    "float" -> hunt.filterMemFloat(pid, numValStr)
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
                 for (address in addresses) {

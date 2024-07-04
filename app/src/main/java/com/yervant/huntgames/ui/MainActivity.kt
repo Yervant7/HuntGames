@@ -26,13 +26,18 @@ class MainActivity : ComponentActivity() {
 
         if (!checkFile()) {
             try {
-                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "RWMem", "RWMem")
+                Toast.makeText(this@MainActivity, "Copying RWMem", Toast.LENGTH_SHORT).show()
+                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "RWMem", "bin/RWMem")
+                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "libkeystone.so", "bin/libkeystone.so")
+                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "libkeystone.so.0", "bin/libkeystone.so.0")
             } catch (e: IOException) {
                 e.printStackTrace()
                 throw IOException("failed to copy RWMem")
             }
         }
         rootCheck()
+        modulecheck()
+        executeRootCommand("chmod +x /data/data/com.yervant.huntgames/files/bin/RWMem")
 
         setContent {
             HuntGamesTheme(darkTheme = true) {
@@ -83,12 +88,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkFile(): Boolean {
-        val context = this@MainActivity
-        val file = File(context.filesDir, "RWMem")
-        return file.exists()
+    private fun modulecheck() {
+        val output = executeRootCommand("ls /dev/rwMem")
+        if (output.contains("No such file or directory")) {
+            Toast.makeText(this@MainActivity, "Module Not Found", Toast.LENGTH_SHORT).show()
+            throw Exception("module not found")
+        } else {
+            Toast.makeText(this@MainActivity, "Module Found", Toast.LENGTH_SHORT).show()
+        }
     }
 
+    private fun checkFile(): Boolean {
+        val context = this@MainActivity
+        val file = File(context.filesDir, "bin/RWMem")
+        val file2 = File(context.filesDir, "bin/libkeystone.so")
+        val file3 = File(context.filesDir, "bin/libkeystone.so.0")
+        if (!file.exists() && !file2.exists() && !file3.exists()) {
+            Toast.makeText(context, "RWMem not found", Toast.LENGTH_SHORT).show()
+            return false
+        } else {
+            Toast.makeText(context, "RWMem found", Toast.LENGTH_SHORT).show()
+            return true
+        }
+    }
 }
 
 class copyfile {

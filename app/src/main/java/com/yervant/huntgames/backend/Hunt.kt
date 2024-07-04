@@ -4,7 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.yervant.huntgames.ui.menu.refreshvalue
 import com.yervant.huntgames.ui.menu.valtypeselected
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 class Hunt {
@@ -43,43 +46,21 @@ class Hunt {
     }
 
     fun freezeValueAtAddress(pid: Long, addr: String, value: String) {
-        val hunt = HuntingMemory()
-        var currentValue: Int
-        var currentValue2: Long
-        var currentValue3: Float
-
-        while (bool) {
-            if(valtypeselected == "int") {
-                if (value.isEmpty()) {
-                    currentValue = readValueAtAddressInt(pid.toInt(), addr)
-                    hunt.writeMemInt(pid.toInt(), addr, currentValue)
-                    Thread.sleep(1000)
-                } else {
-                    val newValue = value.toInt()
-                    hunt.writeMemInt(pid.toInt(), addr, newValue)
-                    Thread.sleep(1000)
+        setbool(true)
+        CoroutineScope(Dispatchers.IO).launch {
+            val hunt = HuntingMemory()
+            while (bool) {
+                if (valtypeselected == "int") {
+                    val writeValue = if (value.isEmpty()) readValueAtAddressInt(pid.toInt(), addr) else value.toInt()
+                    hunt.writeMemInt(pid.toInt(), addr, writeValue)
+                } else if (valtypeselected == "long") {
+                    val writeValue = if (value.isEmpty()) readValueAtAddressLong(pid.toInt(), addr) else value.toLong()
+                    hunt.writeMemLong(pid.toInt(), addr, writeValue)
+                } else if (valtypeselected == "float") {
+                    val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid.toInt(), addr) else value.toFloat()
+                    hunt.writeMemFloat(pid.toInt(), addr, writeValue)
                 }
-                
-            } else if (valtypeselected == "long") {
-                if (value.isEmpty()) {
-                    currentValue2 = readValueAtAddressLong(pid.toInt(), addr)
-                    hunt.writeMemLong(pid.toInt(), addr, currentValue2)
-                    Thread.sleep(1000)
-                } else {
-                    val newValue = value.toLong()
-                    hunt.writeMemLong(pid.toInt(), addr, newValue)
-                    Thread.sleep(1000)
-                }
-            } else if (valtypeselected == "float") {
-                if (value.isEmpty()) {
-                    currentValue3 = readValueAtAddressFloat(pid.toInt(), addr)
-                    hunt.writeMemFloat(pid.toInt(), addr, currentValue3)
-                    Thread.sleep(1000)
-                } else {
-                    val newValue = value.toFloat()
-                    hunt.writeMemFloat(pid.toInt(), addr, newValue)
-                    Thread.sleep(1000)
-                }
+                delay(1000)
             }
         }
     }

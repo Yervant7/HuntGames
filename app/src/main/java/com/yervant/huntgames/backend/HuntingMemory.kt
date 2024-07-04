@@ -1,32 +1,31 @@
 package com.yervant.huntgames.backend
 
 import android.util.Log
+import com.yervant.huntgames.ui.menu.RegionSelected
 import java.io.File
 import java.lang.Process
-import java.nio.file.Files
-import java.nio.file.Path
 
 class HuntingMemory {
 
-    private val binDirPath = "/data/data/com.yervant.huntgames/files"
+    private val binDirPath = "/data/data/com.yervant.huntgames/files/bin"
     private val filterdirPath = "$binDirPath/filteroutput"
     private val searchOutputPath = "$binDirPath/searchoutput.txt"
     private val filterOutputPath = "$filterdirPath/filteroutput_${System.currentTimeMillis()}.txt"
     private val readOutputPath = "$binDirPath/readoutput.txt"
     private val writeOutputPath = "$binDirPath/writeoutput.txt"
-
+    private val disassembleOutputPath = "$binDirPath/disassembleoutput.txt"
     private var currentFilteredAddresses = mutableListOf<String>()
 
     private fun executeRootCommand(command: String): Process? {
         return Runtime.getRuntime().exec(arrayOf("su", "-c", command))
     }
 
-    private fun executeRootCommandWithOutput(command: String, outputPath: String): List<String> {
+    private fun executeRootCommandWithOutput(command: String): List<String> {
         val output = mutableListOf<String>()
         try {
             val process = executeRootCommand(command)
             process?.waitFor()
-            val file = File(outputPath)
+            val file = File(searchOutputPath)
             if (file.exists()) {
                 output.addAll(file.readLines())
             }
@@ -103,59 +102,65 @@ class HuntingMemory {
         return value
     }
 
-    fun searchInt(pid: Int, targetValue: Int, packageName: String): List<String> {
+    fun searchInt(pid: Long, targetValue: Int): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-int $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
-        currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-int $pid $targetValue $regions $searchOutputPath"
+        currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
 
-    fun searchLong(pid: Int, targetValue: Long, packageName: String): List<String> {
+    fun searchLong(pid: Long, targetValue: Long): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-long $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
-        currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-long $pid $targetValue $regions $searchOutputPath"
+        currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
 
-    fun searchFloat(pid: Int, targetValue: Float, packageName: String): List<String> {
+    fun searchFloat(pid: Long, targetValue: Float): List<String> {
         ensureFileDeleted(searchOutputPath)
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem search-float $pid $targetValue C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM $searchOutputPath"
-        currentFilteredAddresses = executeRootCommandWithOutput(command, searchOutputPath).toMutableList()
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath.$binDirPath/RWMem search-float $pid $targetValue $regions $searchOutputPath"
+        currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
 
     fun readMemInt(pid: Int, addr: String): Int {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem read $pid $addr 4 int > $readOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 int > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toIntOrNull() ?: 0
     }
 
     fun readMemLong(pid: Int, addr: String): Long {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem read $pid $addr 8 long > $readOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 8 long > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toLongOrNull() ?: 0
     }
 
     fun readMemFloat(pid: Int, addr: String): Float {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem read $pid $addr 4 float> $readOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 float > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toFloatOrNull() ?: 0.0f
     }
 
     fun writeMemInt(pid: Int, addr: String, value: Int) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-int $pid $addr $value > $writeOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-int $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
     fun writeMemLong(pid: Int, addr: String, value: Long) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-long $pid $addr $value > $writeOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-long $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
     fun writeMemFloat(pid: Int, addr: String, value: Float) {
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem write-float $pid $addr $value > $writeOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-float $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
@@ -178,7 +183,7 @@ class HuntingMemory {
         } else {
             searchOutputPath
         }
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem filter-int $pid $expectedValue $filePath $filterOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-int $pid $expectedValue $filePath $filterOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput2(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -191,7 +196,7 @@ class HuntingMemory {
         } else {
             searchOutputPath
         }
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem filter-long $pid $expectedValue $filePath $filterOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-long $pid $expectedValue $filePath $filterOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput2(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -204,8 +209,32 @@ class HuntingMemory {
         } else {
             searchOutputPath
         }
-        val command = "cd $binDirPath && chmod +x ./RWMem && ./RWMem filter-float $pid $expectedValue $filePath $filterOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-float $pid $expectedValue $filePath $filterOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput2(command).toMutableList()
         return currentFilteredAddresses
+    }
+
+    fun disassemble(pid: Long, addr: String): Boolean {
+        ensureFileDeleted(disassembleOutputPath)
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem disassemble $pid $addr $disassembleOutputPath"
+        val process = executeRootCommand(command)
+        process?.waitFor()
+        val file = File(disassembleOutputPath)
+        if (file.exists()) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    fun writeassemble(pid: Long, addr: String, assemblycode: String, is64bits: Boolean) {
+        val arg = if(is64bits) {
+            "64"
+        } else {
+            "32"
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-assembly $pid $addr $assemblycode $arg'"
+        val process = executeRootCommand(command)
+        process?.waitFor()
     }
 }
