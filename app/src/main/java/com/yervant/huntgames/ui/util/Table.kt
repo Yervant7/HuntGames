@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +37,8 @@ fun CreateTable(
     rowMinHeight: Dp = 0.dp,
     onRowClicked: (rowIndex: Int) -> Unit,
     drawCell: @Composable (rowIndex: Int, colIndex: Int) -> Unit,
-
+    rowMaxHeight: Dp = Dp.Unspecified,
+    lazyColumnState: LazyListState = rememberLazyListState(),
     ) {
     @Composable
     fun RowScope.GetCellModifier(
@@ -45,6 +48,7 @@ fun CreateTable(
             .border(1.dp, MaterialTheme.colorScheme.primary)
             .weight(weight = weight)
             .padding(8.dp)
+            .heightIn(min = rowMinHeight, max = rowMaxHeight)
             // just in case if text is too long
             .horizontalScroll(rememberScrollState())
             // so children's size in [drawCell] can be as big as possible
@@ -78,7 +82,6 @@ fun CreateTable(
             for (i in 0 until colNames.size)
                 TableCell(text = colNames[i], weight = colWeights[i])
         }
-        val lazyColumnState = rememberLazyListState()
         // items
         LazyColumnScrollbar(listState = lazyColumnState) {
             LazyColumn(state = lazyColumnState) {

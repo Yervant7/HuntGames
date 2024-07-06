@@ -347,7 +347,7 @@ private fun MatchesTable(
                             },
                             onPress = {
                                 awaitRelease()
-                                if (isLongPressDetected && System.currentTimeMillis() - longPressStartTime >= 2000) {
+                                if (isLongPressDetected && System.currentTimeMillis() - longPressStartTime >= 1000) {
                                     onMatchLongClicked(matches[rowIndex])
                                 }
                                 isLongPressDetected = false

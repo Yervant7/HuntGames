@@ -2,8 +2,11 @@ package com.yervant.huntgames.ui.menu
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
@@ -12,10 +15,12 @@ import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.backend.Assemble
 import com.yervant.huntgames.backend.AssemblyInfo
 import com.yervant.huntgames.ui.util.CreateTable
+import com.yervant.huntgames.ui.util.TextInput
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val currentAssemblyList: MutableState<List<AssemblyInfo>> = mutableStateOf(mutableListOf())
+private val currentAssemblyList = mutableStateListOf<AssemblyInfo>()
 
 @Composable
 fun DisassembleMenu(overlayContext: OverlayContext?, addr: String) {
@@ -23,93 +28,63 @@ fun DisassembleMenu(overlayContext: OverlayContext?, addr: String) {
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(addr) {
-        UpdateAssemblyList(addr)
+        updateAssemblyList(addr)
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         content = { contentPadding ->
-            _DisassembleMenu(
+            DisassembleMenuContent(
                 snackbarHostState = snackbarHostState,
                 coroutineScope = coroutineScope,
                 overlayContext = overlayContext,
-                contentPadding = contentPadding
+                contentPadding = contentPadding,
+                addr = addr
             )
         }
     )
 }
 
 @Composable
-fun _DisassembleMenu(
+fun DisassembleMenuContent(
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope,
     overlayContext: OverlayContext?,
-    contentPadding: PaddingValues
+    contentPadding: PaddingValues,
+    addr: String
 ) {
-    val showDialog = remember { mutableStateOf(false) }
     val selectedAssemblyInfo = remember { mutableStateOf<AssemblyInfo?>(null) }
-    val newCode = remember { mutableStateOf("") }
-    val is64Bit = remember { mutableStateOf(false) }
+    val is64BitGlobal = remember { mutableStateOf(false) }
+    val editedAssemblyList = remember { mutableStateMapOf<AssemblyInfo, String>() }
+    val listState = rememberLazyListState()
 
-    val content: @Composable (assemblyTableModifier: Modifier) -> Unit =
-        { assemblyTableModifier ->
-            DisassembleTable(
-                modifier = assemblyTableModifier,
-                list = currentAssemblyList.value,
-                onCodeClicked = { assemblyInfo: AssemblyInfo ->
-                    selectedAssemblyInfo.value = assemblyInfo
-                    newCode.value = assemblyInfo.code
-                    is64Bit.value = false
-                    showDialog.value = true
-                },
-            )
-        }
-
-    if (showDialog.value && selectedAssemblyInfo.value != null) {
-        AlertDialog(
-            onDismissRequest = { showDialog.value = false },
-            title = { Text("Edit Assembly Code") },
-            text = {
-                Column {
-                    Text("Address: ${selectedAssemblyInfo.value!!.address}\nCheck the checkbox if the code is 64-bit")
-                    TextField(
-                        value = newCode.value,
-                        onValueChange = { newCode.value = it },
-                        label = { Text("Assembly Code") }
-                    )
-                    Checkbox(
-                        checked = is64Bit.value,
-                        onCheckedChange = { isChecked ->
-                            is64Bit.value = isChecked
-                        },
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedAssemblyInfo.value?.let {
-                            val assemble = Assemble()
-                            assemble.writeAssembly(selectedAssemblyInfo.value!!.address, newCode.value, is64Bit.value)
-                            UpdateAssemblyList(selectedAssemblyInfo.value!!.address)
-                        }
-                        showDialog.value = false
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Code updated successfully",
-                                duration = SnackbarDuration.Short,
-                            )
-                        }
-                    }
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDialog.value = false }) {
-                    Text("Cancel")
-                }
+    // Scroll to the correct item when the list is updated
+    LaunchedEffect(currentAssemblyList, addr) {
+        coroutineScope.launch {
+            delay(500)
+            val scrollToIndex = currentAssemblyList.indexOfFirst { it.address == addr }
+            if (scrollToIndex != -1) {
+                listState.scrollToItem(scrollToIndex)
             }
+        }
+    }
+
+    val content: @Composable (assemblyTableModifier: Modifier) -> Unit = { assemblyTableModifier ->
+        DisassembleTable(
+            modifier = assemblyTableModifier,
+            list = currentAssemblyList,
+            is64BitGlobal = is64BitGlobal.value,
+            editedAssemblyList = editedAssemblyList,
+            onCodeClicked = { assemblyInfo: AssemblyInfo ->
+                selectedAssemblyInfo.value = assemblyInfo
+            },
+            onCodeChanged = { assemblyInfo, newCode ->
+                editedAssemblyList[assemblyInfo] = newCode
+            },
+            onGlobalCheckedChange = { isChecked ->
+                is64BitGlobal.value = isChecked
+            },
+            listState = listState
         )
     }
 
@@ -142,18 +117,38 @@ fun _DisassembleMenu(
     }
 }
 
-fun UpdateAssemblyList(addr: String) {
-    val assemble = Assemble()
-    currentAssemblyList.value = assemble.readListFile(addr)
-}
-
 @Composable
 private fun DisassembleTable(
     modifier: Modifier = Modifier,
     list: List<AssemblyInfo>,
+    is64BitGlobal: Boolean,
+    editedAssemblyList: MutableMap<AssemblyInfo, String>,
     onCodeClicked: (assemblyInfo: AssemblyInfo) -> Unit,
+    onCodeChanged: (assemblyInfo: AssemblyInfo, newCode: String) -> Unit,
+    onGlobalCheckedChange: (Boolean) -> Unit,
+    listState: LazyListState
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        // Global Checkbox
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(1.dp)) {
+            Checkbox(
+                checked = is64BitGlobal,
+                onCheckedChange = onGlobalCheckedChange
+            )
+            Text(text = if (is64BitGlobal) "64-bit" else "32-bit")
+            Spacer(modifier = Modifier.weight(1f))
+            Button(
+                onClick = {
+                    editedAssemblyList.forEach { (assemblyInfo, newCode) ->
+                        val assemble = Assemble()
+                        assemble.writeAssembly(assemblyInfo.address, newCode, is64BitGlobal)
+                    }
+                    editedAssemblyList.clear()
+                },
+            ) {
+                Text("Save All")
+            }
+        }
         CreateTable(
             colNames = listOf("Address", "Assembly Code"),
             colWeights = listOf(0.3f, 0.7f),
@@ -165,11 +160,25 @@ private fun DisassembleTable(
             drawCell = { rowIndex: Int, colIndex: Int ->
                 when (colIndex) {
                     0 -> Text(text = list[rowIndex].address)
-                    1 -> Text(text = list[rowIndex].code)
+                    1 -> TextInput(
+                        textValue = editedAssemblyList[list[rowIndex]] ?: list[rowIndex].code,
+                        onTextChange = { newCode ->
+                            onCodeChanged(list[rowIndex], newCode)
+                        },
+                    )
                 }
-            }
+            },
+            rowMinHeight = 20.dp,
+            rowMaxHeight = 20.dp,
+            lazyColumnState = listState
         )
     }
+}
+
+fun updateAssemblyList(addr: String) {
+    val assemble = Assemble()
+    currentAssemblyList.clear()
+    currentAssemblyList.addAll(assemble.readListFile(addr))
 }
 
 @Composable
@@ -177,4 +186,3 @@ private fun DisassembleTable(
 fun DisassembleMenuPreview() {
     DisassembleMenu(null, "")
 }
-
