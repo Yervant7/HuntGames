@@ -1,20 +1,57 @@
-# Android app for modify memory, based on kernel
-Depends on https://github.com/Yervant7/rwMem
+# HuntGames
 
-## Status: 
+HuntGames is an open-source project aimed at providing tools for game hunting and analysis on ARM64 devices. This project uses the kernel for Read and Write memory
 
-working basic functions
-If you want to contribute you are very welcome
+## Features
 
-# How to start using:
+- Disassemble functions for better analysis.
+- Write assembly code directly.
+- Search values in memory of process.
+- Write values in memory of process.
 
-you need to compile a kernel module (RWMEM) for your kernel and if your kernel does not have support for loading kernel modules you need to add support. for these questions you can try this repo: https://github.com/Yervant7/Kernel_Action
+## Requirements
 
-# credits: 
+- ARM64 device
+- Root access
+- Compiled kernel module (refer to the [rwMem repository](https://github.com/Yervant7/rwMem))
+- Unlocked bootloader
 
+## Installation
+
+1. Download apk in the realeases section
+
+2. Compile the necessary kernel module from the [rwMem repository](https://github.com/Yervant7/rwMem):
+    Instructions in the repository see too [Kernel_Action repository](https://github.com/Yervant7/Kernel_Action)
+ 
+3. Load the compiled module:
+    ```bash
+    su -c insmod rwmem.ko
+    ```
+
+## Usage
+
+To start using HuntGames, ensure that you have met all the requirements and loaded the kernel module. Follow the instructions to enable the global namespace in your root implementation.
+
+## Community and Support
+
+For discussions and support, join our Telegram group: [HuntGames Telegram Group](https://t.me/huntgames7).
+
+Watch the [demo video](https://youtu.be/hMQYwH0Hmcs?si=OB-4-XjnJ-mDBt1z) to see HuntGames in action.
+
+## Contributing
+
+We welcome contributions! Please fork the repository, create a feature branch, and submit a pull request. Ensure your code adheres to the project's coding standards and passes all tests.
+
+## Acknowledgments
+
+- Inspiration and guidance from the
 ri-char: https://github.com/ri-char
 abcz316: https://github.com/abcz316
 for the Kernel Module Read and Write to Memory
 
 KuhakuPixel: https://github.com/KuhakuPixel
 for the ui
+
+---
+
+*Note: The project is in its early stages. Please report any issues or bugs in the Issues section.*
