@@ -55,6 +55,7 @@ class Memory {
             "int" -> hunt.readMemInt(pid.toInt(), addr).toString()
             "long" -> hunt.readMemLong(pid.toInt(), addr).toString()
             "float" -> hunt.readMemFloat(pid.toInt(), addr).toString()
+            "double" -> hunt.readMemDouble(pid.toInt(), addr).toString()
             else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
         }
         return result
@@ -89,6 +90,7 @@ class Memory {
                     "int" -> hunt.searchInt(pid, numValStr.toInt())
                     "long" -> hunt.searchLong(pid, numValStr.toLong())
                     "float" -> hunt.searchFloat(pid, numValStr.toFloat())
+                    "double" -> hunt.searchDouble(pid, numValStr.toDouble())
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
                 for (address in addresses) {
@@ -99,6 +101,7 @@ class Memory {
                     "int" -> hunt.filterMemInt(pid, numValStr)
                     "long" -> hunt.filterMemLong(pid, numValStr)
                     "float" -> hunt.filterMemFloat(pid, numValStr)
+                    "double" -> hunt.filterMemDouble(pid, numValStr)
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
                 for (address in addresses) {

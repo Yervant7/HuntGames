@@ -97,6 +97,21 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     onConfirm = { newValue: String ->
                         val hunt = Hunt()
                         val isattc = isattached()
+                        try {
+                            if (valtypeselected == "int") {
+                                newValue.toInt()
+                            } else if (valtypeselected == "long") {
+                                newValue.toLong()
+                            } else if (valtypeselected == "float") {
+                                newValue.toFloat()
+                            } else if (valtypeselected == "double") {
+                                newValue.toDouble()
+                            } else {
+                                throw NumberFormatException()
+                            }
+                        } catch (e: NumberFormatException) {
+                            throw e
+                        }
                         if (addressInfo.isFreezed.value) {
                             GlobalScope.launch(Dispatchers.IO) {
                                 hunt.freezeValueAtAddress(

@@ -27,6 +27,8 @@ class Hunt {
             writeValueAtAddressLong(pid.toInt(), addr, value.toLong())
         } else if (valtypeselected == "float") {
             writeValueAtAddressFloat(pid.toInt(), addr, value.toFloat())
+        } else if (valtypeselected == "double") {
+            writeValueAtAddressDouble(pid.toInt(), addr, value.toDouble())
         }
     }
 
@@ -45,6 +47,11 @@ class Hunt {
         hunt.writeMemFloat(pid, addr, value)
     }
 
+    private fun writeValueAtAddressDouble(pid: Int, addr: String, value: Double) {
+        val hunt = HuntingMemory()
+        hunt.writeMemDouble(pid, addr, value)
+    }
+
     fun freezeValueAtAddress(pid: Long, addr: String, value: String) {
         setbool(true)
         CoroutineScope(Dispatchers.IO).launch {
@@ -59,6 +66,9 @@ class Hunt {
                 } else if (valtypeselected == "float") {
                     val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid.toInt(), addr) else value.toFloat()
                     hunt.writeMemFloat(pid.toInt(), addr, writeValue)
+                } else if (valtypeselected == "double") {
+                    val writeValue = if (value.isEmpty()) readValueAtAddressDouble(pid.toInt(), addr) else value.toDouble()
+                    hunt.writeMemDouble(pid.toInt(), addr, writeValue)
                 }
                 delay(1000)
             }
@@ -78,5 +88,10 @@ class Hunt {
     private fun readValueAtAddressFloat(pid: Int, addr: String): Float {
         val hunt = HuntingMemory()
         return hunt.readMemFloat(pid, addr)
+    }
+
+    private fun readValueAtAddressDouble(pid: Int, addr: String): Double {
+        val hunt = HuntingMemory()
+        return hunt.readMemDouble(pid, addr)
     }
 }

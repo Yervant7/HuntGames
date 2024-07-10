@@ -124,27 +124,46 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath.$binDirPath/RWMem search-float $pid $targetValue $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-float $pid $targetValue $regions $searchOutputPath"
+        currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
+        return currentFilteredAddresses
+    }
+
+    fun searchDouble(pid: Long, targetValue: Double): List<String> {
+        ensureFileDeleted(searchOutputPath)
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-double $pid $targetValue $regions $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
 
     fun readMemInt(pid: Int, addr: String): Int {
+        ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 int > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toIntOrNull() ?: 0
     }
 
     fun readMemLong(pid: Int, addr: String): Long {
+        ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 8 long > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toLongOrNull() ?: 0
     }
 
     fun readMemFloat(pid: Int, addr: String): Float {
+        ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 float > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toFloatOrNull() ?: 0.0f
+    }
+
+    fun readMemDouble(pid: Int, addr: String): Double {
+        ensureFileDeleted(readOutputPath)
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 8 Double > $readOutputPath"
+        val output = executeRootCommand2(command, readOutputPath)
+        return extractValue(output).toDoubleOrNull() ?: 0.0
     }
 
     fun writeMemInt(pid: Int, addr: String, value: Int) {
@@ -161,6 +180,12 @@ class HuntingMemory {
 
     fun writeMemFloat(pid: Int, addr: String, value: Float) {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-float $pid $addr $value > $writeOutputPath"
+        val output = executeRootCommand2(command, writeOutputPath)
+        Log.d("HuntingMemory", "Write output: $output")
+    }
+
+    fun writeMemDouble(pid: Int, addr: String, value: Double) {
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-double $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
@@ -214,6 +239,19 @@ class HuntingMemory {
         return currentFilteredAddresses
     }
 
+    fun filterMemDouble(pid: Long, expectedValue: String): List<String> {
+        Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
+        val filteroutpath = getLatestFile(filterdirPath)
+        val filePath = if (currentFilteredAddresses.isNotEmpty()) {
+            filteroutpath
+        } else {
+            searchOutputPath
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-double $pid $expectedValue $filePath $filterOutputPath"
+        currentFilteredAddresses = executeRootCommandWithOutput2(command).toMutableList()
+        return currentFilteredAddresses
+    }
+
     fun disassemble(pid: Long, addr: String): Boolean {
         ensureFileDeleted(disassembleOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem disassemble $pid $addr $disassembleOutputPath"
@@ -233,7 +271,7 @@ class HuntingMemory {
         } else {
             "32"
         }
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-assembly $pid $addr $assemblycode $arg'"
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-assembly $pid $addr $assemblycode $arg"
         val process = executeRootCommand(command)
         process?.waitFor()
     }

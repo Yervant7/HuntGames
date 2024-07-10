@@ -55,7 +55,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-
+import kotlinx.coroutines.isActive
 
 
 // ======================= drop down options =================
@@ -106,9 +106,14 @@ fun MemoryMenu(overlayContext: OverlayContext?) {
         if (currentaddressList.isEmpty()) {
             println("No need to refresh")
         } else {
-            while (true) {
-                refreshvalue()
-                delay(50.seconds)
+            while (isActive) {
+                if (currentaddressList.isEmpty()) {
+                    println("No need to refresh")
+                } else {
+                    refreshvalue()
+                    delay(50.seconds)
+                }
+                delay(10.seconds)
             }
         }
     }
@@ -132,21 +137,23 @@ fun MemoryMenu(overlayContext: OverlayContext?) {
 fun refreshvalue() {
     val mem = Memory()
     val currentaddressList: List<MatchInfo> = mem.readMatchesFile()
-    val fileOutputStream = FileOutputStream(fileName)
-    val printWriter = PrintWriter(fileOutputStream)
-    var i = 0
-    while (i < currentaddressList.size) {
-        val value = mem.getvalue(currentaddressList[i].address)
-        val line = "${currentaddressList[i].address} $value"
-        printWriter.println(line)
-        i++
+    if (currentaddressList.isNotEmpty()) {
+        val fileOutputStream = FileOutputStream(fileName)
+        val printWriter = PrintWriter(fileOutputStream)
+        var i = 0
+        while (i < currentaddressList.size) {
+            val value = mem.getvalue(currentaddressList[i].address)
+            val line = "${currentaddressList[i].address} $value"
+            printWriter.println(line)
+            i++
+        }
+        printWriter.close()
+        UpdateMatches()
     }
-    printWriter.close()
-    UpdateMatches()
 }
 
 var valtypeselected: String = "int"
-var valuestype: List<String> = listOf("int", "long", "float")
+var valuestype: List<String> = listOf("int", "long", "float", "double")
 
 @Composable
 fun _MemoryMenu(
@@ -289,7 +296,6 @@ fun _MemoryMenu(
         }
     }
 }
-
 
 fun ResetMatches() {
     currentMatchesList.value = emptyList()

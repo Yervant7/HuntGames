@@ -30,32 +30,18 @@ import kotlin.time.Duration.Companion.seconds
 import androidx.compose.runtime.*
 import com.yervant.huntgames.ui.util.CreateTable
 
-/**
- * which process we are currently attached to?
- * */
 private var attachedStatusString: MutableState<String> = mutableStateOf("None")
-
 private var success: Boolean = false
-
 private var svpid: Long = -1
 
 class isattached {
     fun alert(): Boolean {
-        if (success) {
-            return true
-        } else {
-            return false
-        }
+        return success
     }
     fun savepid(): Long {
-        if (svpid != -1L) {
-            return svpid
-        } else {
-            return -1
-        }
+        return if (svpid != -1L) svpid else -1
     }
 }
-
 
 fun AttachToProcess(
     pid: Long,
@@ -63,7 +49,6 @@ fun AttachToProcess(
     onAttachSuccess: () -> Unit,
     onAttachFailure: (msg: String) -> Unit,
 ) {
-
     if (pid > 1000) {
         success = true
         onAttachSuccess()
@@ -74,14 +59,15 @@ fun AttachToProcess(
 
 @Composable
 fun ProcessMenu(overlayContext: OverlayContext?) {
-    // list of processes that are gonna be shown
     val currentProcList = remember { mutableStateListOf<ProcessInfo>() }
+    val coroutineScope = rememberCoroutineScope()
 
-    // Function to periodically refresh the process list
     LaunchedEffect(Unit) {
-        while (true) {
-            refreshProcList(currentProcList)
-            delay(60.seconds) // Update the list every 30 seconds
+        coroutineScope.launch {
+            while (isActive) {
+                refreshProcList(currentProcList)
+                delay(60.seconds)
+            }
         }
     }
 
@@ -89,22 +75,23 @@ fun ProcessMenu(overlayContext: OverlayContext?) {
         runningProcState = currentProcList,
         onAttach = { pid: Long, procName: String, memory: String ->
             OverlayInfoDialog(overlayContext!!).show(
-                title = "Attach to ${pid} - ${procName} ? ", text = "",
+                title = "Attach to $pid - $procName?",
+                text = "",
                 onConfirm = {
                     AttachToProcess(
-                        pid = pid.toLong(),
+                        pid = pid,
                         onAttachSuccess = {
                             OverlayInfoDialog(overlayContext).show(
-                                title = "Attaching to ${procName} is successful",
+                                title = "Attaching to $procName is successful",
                                 onConfirm = {},
                                 text = "",
                             )
-                            attachedStatusString.value = "${pid} - ${procName}"
-                            svpid = pid.toLong()
+                            attachedStatusString.value = "$pid - $procName"
+                            svpid = pid
                         },
                         onProcessNoExistAnymore = {
                             OverlayInfoDialog(overlayContext).show(
-                                title = "Process ${procName} is not running anymore, Can't attach",
+                                title = "Process $procName is not running anymore, Can't attach",
                                 onConfirm = {},
                                 text = "",
                             )
@@ -125,31 +112,32 @@ fun ProcessMenu(overlayContext: OverlayContext?) {
 }
 
 fun refreshProcList(processList: MutableList<Process.ProcessInfo>) {
-    // Launch a coroutine to fetch running processes in the background
     CoroutineScope(Dispatchers.IO).launch {
         val process = Process()
-        val processes = process.getRunningProcesses()
+        val newProcesses = process.getRunningProcesses()
 
-        // Update the UI with the fetched processes on the main thread
         withContext(Dispatchers.Main) {
-            // Clear the list first
-            processList.clear()
+            val existingPids = processList.map { it.pid }.toSet()
+            val newPids = newProcesses.map { it.pid }.toSet()
 
-            // Add the new processes to the list
-            processList.addAll(processes)
+            // Remove processes that are no longer running
+            processList.removeAll { it.pid !in newPids }
+
+            // Add new processes that are not already in the list
+            newProcesses.filter { it.pid !in existingPids }.forEach {
+                processList.add(it)
+            }
         }
     }
 }
-
 
 @Composable
 fun ProcessTable(
     processList: List<ProcessInfo>,
     onProcessSelected: (pid: Long, procName: String, memory: String) -> Unit,
 ) {
-
-
-    CreateTable(modifier = Modifier.padding(16.dp),
+    CreateTable(
+        modifier = Modifier.padding(16.dp),
         colNames = listOf("Pid", "Name", "Memory"),
         colWeights = listOf(0.2f, 0.5f, 0.3f),
         itemCount = processList.size,
@@ -160,37 +148,31 @@ fun ProcessTable(
                 processList[rowIndex].packageName,
                 processList[rowIndex].memory
             )
-
         },
         drawCell = { rowIndex: Int, colIndex: Int ->
-            if (colIndex == 0) {
-                Text(text = processList[rowIndex].pid)
+            when (colIndex) {
+                0 -> Text(text = processList[rowIndex].pid)
+                1 -> Text(text = processList[rowIndex].packageName)
+                2 -> {
+                    val memoryInMB = processList[rowIndex].memory.toLong() / 1024
+                    Text(text = "$memoryInMB MB")
+                }
             }
-            if (colIndex == 1) {
-                Text(text = processList[rowIndex].packageName)
-            }
-            if (colIndex == 2) {
-                val memoryInMB = processList[rowIndex].memory.toLong() / 1024 // Convert memory to MB
-                Text(text = "$memoryInMB MB")
-            }
-        })
+        }
+    )
 }
-
 
 @Composable
 private fun _ProcessMenuContent(
     runningProcState: MutableList<ProcessInfo>,
     onRefreshClicked: () -> Unit,
     onAttach: (pid: Long, procName: String, memory: String) -> Unit,
-    buttonContainer: @Composable (
-        content: @Composable () -> Unit
-    ) -> Unit
+    buttonContainer: @Composable (content: @Composable () -> Unit) -> Unit
 ) {
     if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT) {
         Text("Selected process: ${attachedStatusString.value}")
     }
     buttonContainer {
-
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
             Text("Selected process: ${attachedStatusString.value}")
         }
@@ -201,7 +183,6 @@ private fun _ProcessMenuContent(
             )
         }
     }
-
     ProcessTable(
         processList = runningProcState,
         onProcessSelected = onAttach,
@@ -214,16 +195,12 @@ private fun _ProcessMenu(
     onRefreshClicked: () -> Unit,
     onAttach: (pid: Long, procName: String, memory: String) -> Unit,
 ) {
-
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 _ProcessMenuContent(
                     runningProcState = runningProcState,
                     onRefreshClicked = onRefreshClicked,
@@ -233,11 +210,8 @@ private fun _ProcessMenu(
                     }
                 )
             }
-
         } else {
-            Row(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            Row(modifier = Modifier.fillMaxSize()) {
                 _ProcessMenuContent(
                     runningProcState = runningProcState,
                     onRefreshClicked = onRefreshClicked,
@@ -247,7 +221,6 @@ private fun _ProcessMenu(
                     }
                 )
             }
-
         }
     }
 }
@@ -255,14 +228,11 @@ private fun _ProcessMenu(
 @Preview(showBackground = true)
 @Composable
 fun PreviewTable() {
-
-    val process: Process = Process()
+    val process = Process()
     ProcessTable(
         process.getRunningProcesses(),
     ) { pid: Long, procName: String, memory: String ->
-
         // do nothing
-
     }
 }
 
