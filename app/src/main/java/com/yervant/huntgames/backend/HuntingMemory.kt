@@ -168,28 +168,28 @@ class HuntingMemory {
         return currentFilteredAddresses
     }
 
-    fun readMemInt(pid: Int, addr: String): Int {
+    fun readMemInt(pid: Long, addr: String): Int {
         ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 int > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toIntOrNull() ?: 0
     }
 
-    fun readMemLong(pid: Int, addr: String): Long {
+    fun readMemLong(pid: Long, addr: String): Long {
         ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 8 long > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toLongOrNull() ?: 0
     }
 
-    fun readMemFloat(pid: Int, addr: String): Float {
+    fun readMemFloat(pid: Long, addr: String): Float {
         ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 float > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)
         return extractValue(output).toFloatOrNull() ?: 0.0f
     }
 
-    fun readMemDouble(pid: Int, addr: String): Double {
+    fun readMemDouble(pid: Long, addr: String): Double {
         ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 8 Double > $readOutputPath"
         val output = executeRootCommand2(command, readOutputPath)

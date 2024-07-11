@@ -34,7 +34,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.yervant.huntgames.ui.util.CreateTable
-import com.yervant.huntgames.ui.util.NumberInputField
+import com.yervant.huntgames.ui.util.TextInput2
 import com.yervant.huntgames.ui.util.OverlayDropDown
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayChoicesDialog
@@ -408,7 +408,7 @@ private fun MatchesSetting(
 ) {
     @Composable
     fun ScanInputField(scanValue: MutableState<String>) {
-        NumberInputField(
+        TextInput2(
             value = scanValue.value,
             onValueChange = { value ->
                 scanValue.value = value

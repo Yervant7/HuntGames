@@ -58,16 +58,16 @@ class Hunt {
             val hunt = HuntingMemory()
             while (bool) {
                 if (valtypeselected == "int") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressInt(pid.toInt(), addr) else value.toInt()
+                    val writeValue = if (value.isEmpty()) readValueAtAddressInt(pid, addr) else value.toInt()
                     hunt.writeMemInt(pid.toInt(), addr, writeValue)
                 } else if (valtypeselected == "long") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressLong(pid.toInt(), addr) else value.toLong()
+                    val writeValue = if (value.isEmpty()) readValueAtAddressLong(pid, addr) else value.toLong()
                     hunt.writeMemLong(pid.toInt(), addr, writeValue)
                 } else if (valtypeselected == "float") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid.toInt(), addr) else value.toFloat()
+                    val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid, addr) else value.toFloat()
                     hunt.writeMemFloat(pid.toInt(), addr, writeValue)
                 } else if (valtypeselected == "double") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressDouble(pid.toInt(), addr) else value.toDouble()
+                    val writeValue = if (value.isEmpty()) readValueAtAddressDouble(pid, addr) else value.toDouble()
                     hunt.writeMemDouble(pid.toInt(), addr, writeValue)
                 }
                 delay(1000)
@@ -75,22 +75,22 @@ class Hunt {
         }
     }
 
-    private fun readValueAtAddressInt(pid: Int, addr: String): Int {
+    private fun readValueAtAddressInt(pid: Long, addr: String): Int {
         val hunt = HuntingMemory()
         return hunt.readMemInt(pid, addr)
     }
 
-    private fun readValueAtAddressLong(pid: Int, addr: String): Long {
+    private fun readValueAtAddressLong(pid: Long, addr: String): Long {
         val hunt = HuntingMemory()
         return hunt.readMemLong(pid, addr)
     }
 
-    private fun readValueAtAddressFloat(pid: Int, addr: String): Float {
+    private fun readValueAtAddressFloat(pid: Long, addr: String): Float {
         val hunt = HuntingMemory()
         return hunt.readMemFloat(pid, addr)
     }
 
-    private fun readValueAtAddressDouble(pid: Int, addr: String): Double {
+    private fun readValueAtAddressDouble(pid: Long, addr: String): Double {
         val hunt = HuntingMemory()
         return hunt.readMemDouble(pid, addr)
     }

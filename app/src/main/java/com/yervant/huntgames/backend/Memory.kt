@@ -13,7 +13,7 @@ import java.io.PrintWriter
 class Memory {
 
     enum class NumType {
-        _int, _long, _float;
+        _int, _long, _float, _double;
 
 
         @Override
@@ -50,10 +50,10 @@ class Memory {
         val pid = isAttached.savepid()
         val hunt = HuntingMemory()
         val result = when (valtypeselected) {
-            "int" -> hunt.readMemInt(pid.toInt(), addr).toString()
-            "long" -> hunt.readMemLong(pid.toInt(), addr).toString()
-            "float" -> hunt.readMemFloat(pid.toInt(), addr).toString()
-            "double" -> hunt.readMemDouble(pid.toInt(), addr).toString()
+            "int" -> hunt.readMemInt(pid, addr).toString()
+            "long" -> hunt.readMemLong(pid, addr).toString()
+            "float" -> hunt.readMemFloat(pid, addr).toString()
+            "double" -> hunt.readMemDouble(pid, addr).toString()
             else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
         }
         return result
@@ -74,6 +74,94 @@ class Memory {
             }
         }
         return matches
+    }
+
+    fun gotoAddress(address: String) {
+        val isAttached = isattached()
+        val pid = isAttached.savepid()
+        val hunt = HuntingMemory()
+        val valueint = hunt.readMemInt(pid, address)
+        val valuelong = hunt.readMemLong(pid, address)
+        val valuefloat = hunt.readMemFloat(pid, address)
+        val valuedouble = hunt.readMemDouble(pid, address)
+        val value = if (valueint != 0) {
+            valueint.toString()
+        } else if (valuelong != 0L) {
+            valuelong.toString()
+        } else if (valuefloat != 0f) {
+            valuefloat.toString()
+        } else if (valuedouble != 0.0) {
+            valuedouble.toString()
+        } else {
+            throw IllegalArgumentException("Unsupported value type read")
+        }
+        val results: MutableList<Pair<String, String>> = mutableListOf()
+        results.add(address to value)
+        val file = File(fileName)
+        if (file.exists()) {
+            file.delete()
+        }
+        FileOutputStream(fileName).use { fos ->
+            PrintWriter(fos).use { pw ->
+                if (results.isNotEmpty()) {
+                    results.forEach { (address, value) ->
+                        pw.println("$address $value")
+                    }
+                } else {
+                    Log.d("Memory", "No results to write")
+                }
+            }
+        }
+    }
+
+    fun gotoAddressAndOffset(addr: String, offset: String, issub: Boolean) {
+        val isAttached = isattached()
+        val pid = isAttached.savepid()
+        val hunt = HuntingMemory()
+
+        val cleanedAddr = if (addr.startsWith("0x")) {
+            addr.removePrefix("0x")
+        } else {
+            addr
+        }
+        val offset = if (offset.startsWith("0x")) {
+            offset.removePrefix("0x")
+        } else {
+            offset
+        }
+
+        val address = if (issub) {
+            cleanedAddr.toLong(16) - offset.toLong(16)
+        } else {
+            cleanedAddr.toLong(16) + offset.toLong(16)
+        }
+
+        val value: Any = when {
+            hunt.readMemInt(pid, address.toString(16)) != 0 -> hunt.readMemInt(pid, address.toString(16))
+            hunt.readMemLong(pid, address.toString(16)) != 0L -> hunt.readMemLong(pid, address.toString(16))
+            hunt.readMemFloat(pid, address.toString(16)) != 0f -> hunt.readMemFloat(pid, address.toString(16))
+            hunt.readMemDouble(pid, address.toString(16)) != 0.0 -> hunt.readMemDouble(pid, address.toString(16))
+            else -> throw IllegalArgumentException("Unsupported value type read")
+        }
+
+        val results: MutableList<Pair<String, String>> = mutableListOf()
+        results.add(address.toString(16) to value.toString())
+
+        val file = File(fileName)
+        if (file.exists()) {
+            file.delete()
+        }
+        FileOutputStream(fileName).use { fos ->
+            PrintWriter(fos).use { pw ->
+                if (results.isNotEmpty()) {
+                    results.forEach { (address, value) ->
+                        pw.println("$address $value")
+                    }
+                } else {
+                    Log.d("Memory", "No results to write")
+                }
+            }
+        }
     }
 
     fun scanAgainstValue(numValStr: String, currentMatches: List<MatchInfo>) {

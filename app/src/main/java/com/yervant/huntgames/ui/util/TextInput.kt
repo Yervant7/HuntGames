@@ -4,13 +4,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 
@@ -68,4 +71,31 @@ fun TextInput(
             placeholder = placeholder
         )
     }
+}
+
+@Composable
+fun TextInput2(
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    value: String,
+    label: String = "",
+    placeholder: String = "",
+    onValueChange: (String) -> Unit,
+) {
+
+    TextField(
+        modifier = modifier,
+        enabled = enabled,
+        value = value,
+        onValueChange = { value ->
+            // make sure we don't pass in value with \n
+            // because of enter, because that will cause the caller
+            // parsing problem
+            onValueChange(value.replace("\n", ""))
+        },
+        label = { Text(text = label) },
+        placeholder = { Text(text = placeholder) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        singleLine = true,
+    )
 }
