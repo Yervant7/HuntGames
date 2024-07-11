@@ -6,8 +6,6 @@ import com.google.common.collect.HashBiMap
 import com.yervant.huntgames.ui.menu.MatchInfo
 import com.yervant.huntgames.ui.menu.isattached
 import com.yervant.huntgames.ui.menu.valtypeselected
-import com.yervant.huntgames.ui.menu.ResetMatches
-import com.yervant.huntgames.ui.menu.UpdateMatches
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter

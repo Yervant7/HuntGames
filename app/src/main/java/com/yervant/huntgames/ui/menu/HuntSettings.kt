@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.mutableStateOf
 
 private var regionsselected = ""
 
@@ -29,6 +31,7 @@ fun RegionSelected(): String {
 fun SettingsMenu() {
     val words = listOf("C_ALLOC", "C_BSS", "C_DATA", "C_HEAP", "JAVA_HEAP", "A_ANONYMOUS", "STACK", "CODE_SYSTEM", "ASHMEM")
     val selectedWords = remember { mutableStateListOf<String>() }
+    val customRegion = remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -54,6 +57,17 @@ fun SettingsMenu() {
                     Text(text = word)
                 }
             }
+
+            item {
+                TextField(
+                    value = customRegion.value,
+                    onValueChange = { customRegion.value = it },
+                    label = { Text("Custom Region") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+            }
         }
 
         Box(
@@ -63,7 +77,11 @@ fun SettingsMenu() {
             Button(
                 onClick = {
                     val selectedWordsString = selectedWords.joinToString(separator = ",")
-                    regionsselected = selectedWordsString
+                    if (customRegion.value.isNotBlank()) {
+                        regionsselected = customRegion.value
+                    } else {
+                        regionsselected = selectedWordsString
+                    }
                 },
                 modifier = Modifier
                     .padding(16.dp)

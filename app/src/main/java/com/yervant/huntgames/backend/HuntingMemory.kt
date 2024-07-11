@@ -1,7 +1,7 @@
 package com.yervant.huntgames.backend
 
-import android.util.Log
 import com.yervant.huntgames.ui.menu.RegionSelected
+import android.util.Log
 import java.io.File
 import java.lang.Process
 
@@ -27,7 +27,8 @@ class HuntingMemory {
             process?.waitFor()
             val file = File(searchOutputPath)
             if (file.exists()) {
-                output.addAll(file.readLines())
+                val out = parseFile(searchOutputPath)
+                output.addAll(out)
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -100,6 +101,35 @@ class HuntingMemory {
         }
 
         return value
+    }
+
+    fun parseFile(filePath: String): List<String> {
+        val addresses = mutableListOf<String>()
+        var skipNextLine = false
+        var skipFirstLine = true
+
+        File(filePath).forEachLine { line ->
+            if (skipFirstLine) {
+                skipFirstLine = false
+                return@forEachLine
+            }
+
+            if (skipNextLine) {
+                skipNextLine = false
+                return@forEachLine
+            }
+
+            when {
+                line.startsWith("===") -> {
+                    skipNextLine = true
+                }
+                else -> {
+                    addresses.add(line)
+                }
+            }
+        }
+
+        return addresses
     }
 
     fun searchInt(pid: Long, targetValue: Int): List<String> {
@@ -203,7 +233,7 @@ class HuntingMemory {
     fun filterMemInt(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
         val filteroutpath = getLatestFile(filterdirPath)
-        val filePath = if (currentFilteredAddresses.isNotEmpty()) {
+        val filePath = if (currentFilteredAddresses.isNotEmpty() || filteroutpath.isNotEmpty()) {
             filteroutpath
         } else {
             searchOutputPath
