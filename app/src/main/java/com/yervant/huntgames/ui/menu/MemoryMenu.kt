@@ -1,6 +1,9 @@
 package com.yervant.huntgames.ui.menu
 
 import android.content.res.Configuration
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,6 +165,8 @@ fun _MemoryMenu(
     overlayContext: OverlayContext?,
     showAssemblyInterface: MutableState<Boolean>
 ) {
+    val context = LocalContext.current
+    val handler = remember { Handler(Looper.getMainLooper()) }
 
     if (!defaultValueInitialized) {
         scanTypeSelectedOptionIdx.value = Operator.values().indexOf(HuntSettings.defaultScanType)
@@ -249,6 +254,9 @@ fun _MemoryMenu(
                             isScanOnGoing.value = false
                             initialScanDone.value = true
                             UpdateMatches()
+                            handler.post {
+                                Toast.makeText(context, "Scan completed", Toast.LENGTH_SHORT).show()
+                            }
                         },
                         onScanError = { e: Exception ->
                             showErrorDialog.value = true

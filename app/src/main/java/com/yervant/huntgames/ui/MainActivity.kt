@@ -90,11 +90,21 @@ class MainActivity : ComponentActivity() {
 
     private fun modulecheck() {
         val output = executeRootCommand("ls /dev/rwMem")
-        if (output.contains("No such file or directory")) {
+        if (output.isEmpty()) {
             Toast.makeText(this@MainActivity, "Module Not Found", Toast.LENGTH_SHORT).show()
             throw Exception("module not found")
         } else {
-            Toast.makeText(this@MainActivity, "Module Found", Toast.LENGTH_SHORT).show()
+            for (line in output) {
+                if (line.startsWith("ls: /dev/rwMem:")) {
+                    Toast.makeText(this@MainActivity, "Module Not Found", Toast.LENGTH_SHORT).show()
+                    throw Exception("module not found")
+                } else if (line.startsWith("/dev/rwMem")) {
+                    Toast.makeText(this@MainActivity, "Module Found", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Module Not Found", Toast.LENGTH_SHORT).show()
+                    throw Exception("module not found")
+                }
+            }
         }
     }
 
