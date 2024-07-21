@@ -1,10 +1,13 @@
 package com.yervant.huntgames.ui
 
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -17,9 +20,14 @@ import com.yervant.huntgames.ui.theme.HuntGamesTheme
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 
 
 class MainActivity : ComponentActivity() {
+
+    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { handleFileImport(it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,6 +61,7 @@ class MainActivity : ComponentActivity() {
                                 componentActivity = this,
                             )
                         },
+                        openFilePicker = { getContent.launch("*/*") }
                     )
                 }
             }
@@ -120,6 +129,34 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(context, "RWMem found", Toast.LENGTH_SHORT).show()
             return true
         }
+    }
+
+    private fun handleFileImport(uri: Uri) {
+        val fileName = getFileName(uri)
+        if (fileName.endsWith(".lua")) {
+            val inputStream: InputStream? = contentResolver.openInputStream(uri)
+            inputStream?.let {
+                val file = File(filesDir, fileName)
+                val outputStream = FileOutputStream(file)
+                it.copyTo(outputStream)
+                outputStream.close()
+                it.close()
+            }
+        } else {
+            Toast.makeText(this@MainActivity, "Only import files .lua", Toast.LENGTH_SHORT).show()
+            throw Exception("not a lua file")
+        }
+    }
+
+    private fun getFileName(uri: Uri): String {
+        var name = "unknown"
+        val cursor = contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                name = it.getString(it.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+            }
+        }
+        return name
     }
 }
 

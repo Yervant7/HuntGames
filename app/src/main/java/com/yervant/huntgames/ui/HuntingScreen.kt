@@ -56,7 +56,7 @@ fun HackingScreen(overlayContext: OverlayContext) {
             route = "settings",
             title = "Settings",
             iconId = R.drawable.ic_setting,
-            content = { SettingsMenu() },
+            content = { SettingsMenu(overlayContext = overlayContext) },
         ),
     )
     // =====================================================
@@ -94,7 +94,6 @@ class OverlayHackingScreenController(val overlayContext: OverlayContext, val onC
                         Button(onClick = onClosed) {
                             Text("Close")
                         }
-
                     }
                     HackingScreen(overlayContext = overlayContext)
                 }

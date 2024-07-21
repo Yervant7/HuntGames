@@ -33,7 +33,7 @@ fun onNextScanClicked(
             throw RuntimeException("Input value cannot be empty")
         } else if (scanOptions.inputVal.contains(" ")) {
             throw RuntimeException("Input value cannot contain spaces")
-        } else if (scanOptions.inputVal.startsWith("0x") && scanOptions.inputVal.contains("+") || scanOptions.inputVal.contains("-")) {
+        } else if (scanOptions.inputVal.startsWith("0x") && scanOptions.inputVal.contains("+") || scanOptions.inputVal.startsWith("0x") && scanOptions.inputVal.contains("-")) {
             val value = if (scanOptions.inputVal.contains("-")) {
                 scanOptions.inputVal.split("-")
             } else {
@@ -45,6 +45,11 @@ fun onNextScanClicked(
             mem.gotoAddressAndOffset(addr, offset, issub)
         } else if (scanOptions.inputVal.startsWith("0x")){
             mem.gotoAddress(scanOptions.inputVal)
+        } else if (scanOptions.inputVal.contains(";")) {
+            mem.scanAgainstValueGroup(
+                scanOptions.inputVal,
+                currentmatches
+            )
         } else {
             mem.scanAgainstValue(
                 scanOptions.inputVal,

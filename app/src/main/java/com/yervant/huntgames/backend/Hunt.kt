@@ -1,14 +1,12 @@
 package com.yervant.huntgames.backend
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import com.yervant.huntgames.ui.menu.refreshvalue
+import com.yervant.huntgames.ui.menu.AddressInfo
+import com.yervant.huntgames.ui.menu.isattached
 import com.yervant.huntgames.ui.menu.valtypeselected
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
 
 class Hunt {
 
@@ -20,57 +18,82 @@ class Hunt {
         bool = b
     }
 
-    fun writeValueAtAddress(pid: Long, addr: String, value: String) {
-        if(valtypeselected == "int") {
-            writeValueAtAddressInt(pid.toInt(), addr, value.toInt())
-        } else if (valtypeselected == "long") {
-            writeValueAtAddressLong(pid.toInt(), addr, value.toLong())
-        } else if (valtypeselected == "float") {
-            writeValueAtAddressFloat(pid.toInt(), addr, value.toFloat())
-        } else if (valtypeselected == "double") {
-            writeValueAtAddressDouble(pid.toInt(), addr, value.toDouble())
+    fun writeall(addrs: MutableList<AddressInfo>, value: String) {
+        val pid = isattached().savepid()
+        var i = 0
+        while (i < addrs.size) {
+            writeValueAtAddress(pid, addrs[i].matchInfo.address, value, valtypeselected)
+            i++
         }
     }
 
-    private fun writeValueAtAddressInt(pid: Int, addr: String, value: Int) {
+    fun freezeall(addrs: MutableList<AddressInfo>, value: String) {
+        val pid = isattached().savepid()
+        var i = 0
+        val freezelist: MutableList<FreezeInfo> = mutableListOf()
+        while (i < addrs.size) {
+            freezelist.add(FreezeInfo(addrs[i].matchInfo.address, value, valtypeselected))
+            i++
+        }
+        freezeValuesAtAddresses(pid, freezelist)
+    }
+
+    fun writeValueAtAddress(pid: Long, addr: String, value: String, valtype: String) {
+        if(valtype == "int") {
+            writeValueAtAddressInt(pid, addr, value.toInt())
+        } else if (valtype == "long") {
+            writeValueAtAddressLong(pid, addr, value.toLong())
+        } else if (valtype == "float") {
+            writeValueAtAddressFloat(pid, addr, value.toFloat())
+        } else if (valtype == "double") {
+            writeValueAtAddressDouble(pid, addr, value.toDouble())
+        }
+    }
+
+    private fun writeValueAtAddressInt(pid: Long, addr: String, value: Int) {
         val hunt = HuntingMemory()
         hunt.writeMemInt(pid, addr, value)
     }
 
-    private fun writeValueAtAddressLong(pid: Int, addr: String, value: Long) {
+    private fun writeValueAtAddressLong(pid: Long, addr: String, value: Long) {
         val hunt = HuntingMemory()
         hunt.writeMemLong(pid, addr, value)
     }
 
-    private fun writeValueAtAddressFloat(pid: Int, addr: String, value: Float) {
+    private fun writeValueAtAddressFloat(pid: Long, addr: String, value: Float) {
         val hunt = HuntingMemory()
         hunt.writeMemFloat(pid, addr, value)
     }
 
-    private fun writeValueAtAddressDouble(pid: Int, addr: String, value: Double) {
+    private fun writeValueAtAddressDouble(pid: Long, addr: String, value: Double) {
         val hunt = HuntingMemory()
         hunt.writeMemDouble(pid, addr, value)
     }
 
-    fun freezeValueAtAddress(pid: Long, addr: String, value: String) {
+    data class FreezeInfo(val addr: String, val value: String, val valtype: String)
+
+    fun freezeValuesAtAddresses(pid: Long, freezeList: List<FreezeInfo>) {
         setbool(true)
         CoroutineScope(Dispatchers.IO).launch {
             val hunt = HuntingMemory()
             while (bool) {
-                if (valtypeselected == "int") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressInt(pid, addr) else value.toInt()
-                    hunt.writeMemInt(pid.toInt(), addr, writeValue)
-                } else if (valtypeselected == "long") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressLong(pid, addr) else value.toLong()
-                    hunt.writeMemLong(pid.toInt(), addr, writeValue)
-                } else if (valtypeselected == "float") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid, addr) else value.toFloat()
-                    hunt.writeMemFloat(pid.toInt(), addr, writeValue)
-                } else if (valtypeselected == "double") {
-                    val writeValue = if (value.isEmpty()) readValueAtAddressDouble(pid, addr) else value.toDouble()
-                    hunt.writeMemDouble(pid.toInt(), addr, writeValue)
+                for (freezeInfo in freezeList) {
+                    val (addr, value, valtype) = freezeInfo
+                    if (valtype == "int") {
+                        val writeValue = if (value.isEmpty()) readValueAtAddressInt(pid, addr) else value.toInt()
+                        hunt.writeMemInt(pid, addr, writeValue)
+                    } else if (valtype == "long") {
+                        val writeValue = if (value.isEmpty()) readValueAtAddressLong(pid, addr) else value.toLong()
+                        hunt.writeMemLong(pid, addr, writeValue)
+                    } else if (valtype == "float") {
+                        val writeValue = if (value.isEmpty()) readValueAtAddressFloat(pid, addr) else value.toFloat()
+                        hunt.writeMemFloat(pid, addr, writeValue)
+                    } else if (valtype == "double") {
+                        val writeValue = if (value.isEmpty()) readValueAtAddressDouble(pid, addr) else value.toDouble()
+                        hunt.writeMemDouble(pid, addr, writeValue)
+                    }
                 }
-                delay(1000)
+                delay(150)
             }
         }
     }

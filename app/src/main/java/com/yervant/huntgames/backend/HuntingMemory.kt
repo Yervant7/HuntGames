@@ -15,6 +15,7 @@ class HuntingMemory {
     private val writeOutputPath = "$binDirPath/writeoutput.txt"
     private val disassembleOutputPath = "$binDirPath/disassembleoutput.txt"
     private var currentFilteredAddresses = mutableListOf<String>()
+    private var currentFilteredAddresses2 = mutableListOf<Pair<String, String>>()
 
     private fun executeRootCommand(command: String): Process? {
         return Runtime.getRuntime().exec(arrayOf("su", "-c", command))
@@ -47,6 +48,47 @@ class HuntingMemory {
             val file = File(path)
             if (file.exists()) {
                 output.addAll(file.readLines())
+            } else {
+                Log.d("HuntingMemory", "file not exists: ${file.path}")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return output
+    }
+
+    private fun executeRootCommandWithOutput3(command: String): List<Pair<String, String>> {
+        val output = mutableListOf<Pair<String, String>>()
+        try {
+            val process = executeRootCommand(command)
+            process?.waitFor()
+            val file = File(searchOutputPath)
+            if (file.exists()) {
+                file.forEachLine { line ->
+                    val va = line.split(" ")
+                    output.add(va[0] to va[1])
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return output
+    }
+
+    private fun executeRootCommandWithOutput4(command: String): List<Pair<String, String>> {
+        val output = mutableListOf<Pair<String, String>>()
+        try {
+            val process = executeRootCommand(command)
+            process?.waitFor()
+
+            val out = getLatestFile(filterdirPath)
+            val path = "$filterdirPath/$out"
+            val file = File(path)
+            if (file.exists()) {
+                file.forEachLine { line ->
+                    val va = line.split(" ")
+                    output.add(va[0] to va[1])
+                }
             } else {
                 Log.d("HuntingMemory", "file not exists: ${file.path}")
             }
@@ -168,6 +210,42 @@ class HuntingMemory {
         return currentFilteredAddresses
     }
 
+    fun searchGroupInt(pid: Long, targetValues: String): List<Pair<String, String>> {
+        ensureFileDeleted(searchOutputPath)
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-int $pid '$targetValues' $regions $searchOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun searchGroupLong(pid: Long, targetValues: String): List<Pair<String, String>> {
+        ensureFileDeleted(searchOutputPath)
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-long $pid '$targetValues' $regions $searchOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun searchGroupFloat(pid: Long, targetValues: String): List<Pair<String, String>> {
+        ensureFileDeleted(searchOutputPath)
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-float $pid '$targetValues' $regions $searchOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun searchGroupDouble(pid: Long, targetValues: String): List<Pair<String, String>> {
+        ensureFileDeleted(searchOutputPath)
+        val regions = RegionSelected()
+        Log.d("HuntingMemory", "Regions: $regions")
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-double $pid '$targetValues' $regions $searchOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
     fun readMemInt(pid: Long, addr: String): Int {
         ensureFileDeleted(readOutputPath)
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem read $pid $addr 4 int > $readOutputPath"
@@ -196,25 +274,25 @@ class HuntingMemory {
         return extractValue(output).toDoubleOrNull() ?: 0.0
     }
 
-    fun writeMemInt(pid: Int, addr: String, value: Int) {
+    fun writeMemInt(pid: Long, addr: String, value: Int) {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-int $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
-    fun writeMemLong(pid: Int, addr: String, value: Long) {
+    fun writeMemLong(pid: Long, addr: String, value: Long) {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-long $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
-    fun writeMemFloat(pid: Int, addr: String, value: Float) {
+    fun writeMemFloat(pid: Long, addr: String, value: Float) {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-float $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
     }
 
-    fun writeMemDouble(pid: Int, addr: String, value: Double) {
+    fun writeMemDouble(pid: Long, addr: String, value: Double) {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem write-double $pid $addr $value > $writeOutputPath"
         val output = executeRootCommand2(command, writeOutputPath)
         Log.d("HuntingMemory", "Write output: $output")
@@ -246,7 +324,7 @@ class HuntingMemory {
     fun filterMemLong(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
         val filteroutpath = getLatestFile(filterdirPath)
-        val filePath = if (currentFilteredAddresses.isNotEmpty()) {
+        val filePath = if (currentFilteredAddresses.isNotEmpty() || filteroutpath.isNotEmpty()) {
             filteroutpath
         } else {
             searchOutputPath
@@ -259,7 +337,7 @@ class HuntingMemory {
     fun filterMemFloat(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
         val filteroutpath = getLatestFile(filterdirPath)
-        val filePath = if (currentFilteredAddresses.isNotEmpty()) {
+        val filePath = if (currentFilteredAddresses.isNotEmpty() || filteroutpath.isNotEmpty()) {
             filteroutpath
         } else {
             searchOutputPath
@@ -272,7 +350,7 @@ class HuntingMemory {
     fun filterMemDouble(pid: Long, expectedValue: String): List<String> {
         Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
         val filteroutpath = getLatestFile(filterdirPath)
-        val filePath = if (currentFilteredAddresses.isNotEmpty()) {
+        val filePath = if (currentFilteredAddresses.isNotEmpty() || filteroutpath.isNotEmpty()) {
             filteroutpath
         } else {
             searchOutputPath
@@ -280,6 +358,58 @@ class HuntingMemory {
         val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-double $pid $expectedValue $filePath $filterOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput2(command).toMutableList()
         return currentFilteredAddresses
+    }
+
+    fun filterMemIntGroup(pid: Long, expectedValue: String): List<Pair<String, String>> {
+        Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
+        val filteroutpath = getLatestFile(filterdirPath)
+        val filePath = if (currentFilteredAddresses2.isNotEmpty() || filteroutpath.isNotEmpty()) {
+            filteroutpath
+        } else {
+            searchOutputPath
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-group-int $pid '$expectedValue' $filePath $filterOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput4(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun filterMemLongGroup(pid: Long, expectedValue: String): List<Pair<String, String>> {
+        Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
+        val filteroutpath = getLatestFile(filterdirPath)
+        val filePath = if (currentFilteredAddresses2.isNotEmpty() || filteroutpath.isNotEmpty()) {
+            filteroutpath
+        } else {
+            searchOutputPath
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-group-long $pid '$expectedValue' $filePath $filterOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput4(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun filterMemFloatGroup(pid: Long, expectedValue: String): List<Pair<String, String>> {
+        Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
+        val filteroutpath = getLatestFile(filterdirPath)
+        val filePath = if (currentFilteredAddresses2.isNotEmpty() || filteroutpath.isNotEmpty()) {
+            filteroutpath
+        } else {
+            searchOutputPath
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-group-float $pid '$expectedValue' $filePath $filterOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput4(command).toMutableList()
+        return currentFilteredAddresses2
+    }
+
+    fun filterMemDoubleGroup(pid: Long, expectedValue: String): List<Pair<String, String>> {
+        Runtime.getRuntime().exec(arrayOf("su", "-c", "mkdir -p $binDirPath/filteroutput"))
+        val filteroutpath = getLatestFile(filterdirPath)
+        val filePath = if (currentFilteredAddresses2.isNotEmpty() || filteroutpath.isNotEmpty()) {
+            filteroutpath
+        } else {
+            searchOutputPath
+        }
+        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem filter-group-double $pid '$expectedValue' $filePath $filterOutputPath"
+        currentFilteredAddresses2 = executeRootCommandWithOutput4(command).toMutableList()
+        return currentFilteredAddresses2
     }
 
     fun disassemble(pid: Long, addr: String): Boolean {

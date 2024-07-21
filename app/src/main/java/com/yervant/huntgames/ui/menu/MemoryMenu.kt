@@ -87,7 +87,7 @@ private val filenamepath = "/data/data/com.yervant.huntgames/files/bin/filterout
 // ================================================================
 private var address = ""
 
-data class MatchInfo(val address: String, val prevValue: String)
+data class MatchInfo(val address: String, val prevValue: String, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
 
@@ -146,7 +146,7 @@ fun refreshvalue() {
         var i = 0
         while (i < currentaddressList.size) {
             val value = mem.getvalue(currentaddressList[i].address)
-            val line = "${currentaddressList[i].address} $value"
+            val line = "${currentaddressList[i].address} $value ${currentaddressList[i].valuetype}"
             printWriter.println(line)
             i++
         }
@@ -156,7 +156,7 @@ fun refreshvalue() {
 }
 
 var valtypeselected: String = "int"
-var valuestype: List<String> = listOf("int", "long", "float", "double")
+var valuestype: List<String> = listOf("int", "long", "float", "double", "all")
 
 @Composable
 fun _MemoryMenu(
@@ -344,8 +344,8 @@ private fun MatchesTable(
             }
         }
         CreateTable(
-            colNames = listOf("Address", "Previous Value"),
-            colWeights = listOf(0.4f, 0.6f),
+            colNames = listOf("Address", "Previous Value", "Type"),
+            colWeights = listOf(0.3f, 0.5f, 0.2f),
             itemCount = matches.size,
             minEmptyItemCount = 50,
             onRowClicked = { rowIndex: Int ->
@@ -371,6 +371,9 @@ private fun MatchesTable(
                 }
                 if (colIndex == 1) {
                     Text(text = matches[rowIndex].prevValue)
+                }
+                if (colIndex == 2) {
+                    Text(text = matches[rowIndex].valuetype)
                 }
             }
         )

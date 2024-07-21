@@ -21,7 +21,7 @@ import com.yervant.huntgames.ui.util.ConfirmDialog
 
 
 @Composable
-fun HomeMenu(askForOverlayPermission: () -> Unit) {
+fun HomeMenu(askForOverlayPermission: () -> Unit, openFilePicker : () -> Unit) {
     val context: Context = LocalContext.current
     val showAskForDrawOverOtherApp: MutableState<Boolean> = remember { mutableStateOf(false) }
     Box(
@@ -43,6 +43,17 @@ fun HomeMenu(askForOverlayPermission: () -> Unit) {
                 text = "Start Hunting",
                 fontWeight = FontWeight.Bold,
             )
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize(),
+        contentAlignment = Alignment.TopEnd
+    ) {
+        Button(
+            onClick = openFilePicker,
+        ) {
+            Text("Import .lua File")
         }
     }
     if (showAskForDrawOverOtherApp.value) {
@@ -70,5 +81,8 @@ fun HomeMenuPreview() {
         askForOverlayPermission = fun() {
             //
         },
+        openFilePicker = fun() {
+            //
+        }
     )
 }

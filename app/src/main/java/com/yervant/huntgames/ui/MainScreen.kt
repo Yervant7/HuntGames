@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.rememberNavController
 import com.yervant.huntgames.R
 import com.yervant.huntgames.ui.bottomnav.BottomBar
@@ -15,7 +14,7 @@ import com.yervant.huntgames.ui.menu.HomeMenu
 
 
 @Composable
-fun MainScreen(askForOverlayPermission: () -> Unit) {
+fun MainScreen(askForOverlayPermission: () -> Unit, openFilePicker: () -> Unit) {
 
     val navController = rememberNavController()
     // ============================ each menu in bottom nav ===================
@@ -24,7 +23,7 @@ fun MainScreen(askForOverlayPermission: () -> Unit) {
             route = "Home",
             title = "Home",
             iconId = R.drawable.ic_home,
-            content = { HomeMenu(askForOverlayPermission = askForOverlayPermission) },
+            content = { HomeMenu(askForOverlayPermission = askForOverlayPermission, openFilePicker = openFilePicker) },
         ),
     )
     // =====================================================

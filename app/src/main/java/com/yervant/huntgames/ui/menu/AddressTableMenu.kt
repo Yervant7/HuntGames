@@ -1,13 +1,17 @@
 package com.yervant.huntgames.ui.menu
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,6 +25,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -30,7 +35,9 @@ import com.yervant.huntgames.ui.util.CreateTable
 import com.yervant.huntgames.backend.Hunt
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
+import com.yervant.huntgames.backend.Hunt.FreezeInfo
 import com.yervant.huntgames.backend.Memory
+import com.yervant.huntgames.ui.OverlayInputDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -61,21 +68,52 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
             .padding(16.dp),
     ) {
         Column(
-            modifier = Modifier.weight(0.2f)
+            modifier = Modifier.weight(0.2f),
+            horizontalAlignment = Alignment.Start
         ) {
-            Button(
-                onClick = {
-                    OverlayInfoDialog(overlayContext!!).show(
-                        title = "Info Dialog",
-                        text = "Delete all addresses?",
-                        onConfirm = {
-                            savedAddresList.clear()
-                        },
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(), Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = {
+                        OverlayInfoDialog(overlayContext!!).show(
+                            title = "Info Dialog",
+                            text = "Delete all addresses?",
+                            onConfirm = {
+                                savedAddresList.clear()
+                            },
+                        )
 
-                }) {
+                    }) {
 
-                Icon(Icons.Filled.Delete, "Delete All Matches")
+                    Icon(Icons.Filled.Delete, "Delete All Matches")
+                }
+                Button(
+                    onClick = {
+                        OverlayInputDialog(overlayContext!!).show(
+                            title = "Edit All",
+                            defaultValue = "999999999",
+                            onConfirm = { input: String ->
+                                Hunt().writeall(savedAddresList, input)
+                            }
+                        )
+                    }) {
+
+                    Icon(Icons.Filled.Edit, "Edit All Matches")
+                }
+                Button(
+                    onClick = {
+                        OverlayInputDialog(overlayContext!!).show(
+                            title = "Freeze All",
+                            defaultValue = "999999999",
+                            onConfirm = { input: String ->
+                                Hunt().freezeall(savedAddresList, input)
+                            }
+                        )
+                    }) {
+
+                    Icon(Icons.Filled.CheckCircle, "Freeze All Matches")
+                }
             }
         }
         SavedAddressesTable(
@@ -97,27 +135,13 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     onConfirm = { newValue: String ->
                         val hunt = Hunt()
                         val isattc = isattached()
-                        try {
-                            if (valtypeselected == "int") {
-                                newValue.toInt()
-                            } else if (valtypeselected == "long") {
-                                newValue.toLong()
-                            } else if (valtypeselected == "float") {
-                                newValue.toFloat()
-                            } else if (valtypeselected == "double") {
-                                newValue.toDouble()
-                            } else {
-                                throw NumberFormatException()
-                            }
-                        } catch (e: NumberFormatException) {
-                            throw e
-                        }
                         if (addressInfo.isFreezed.value) {
                             GlobalScope.launch(Dispatchers.IO) {
-                                hunt.freezeValueAtAddress(
+                                val freezelist: MutableList<FreezeInfo> = mutableListOf()
+                                freezelist.add(FreezeInfo(addressInfo.matchInfo.address, newValue, addressInfo.matchInfo.valuetype))
+                                hunt.freezeValuesAtAddresses(
                                     isattc.savepid(),
-                                    addressInfo.matchInfo.address,
-                                    newValue
+                                    freezelist
                                 )
                                 hunt.setbool(true)
                             }
@@ -125,7 +149,8 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                             hunt.writeValueAtAddress(
                                 isattc.savepid(),
                                 addressInfo.matchInfo.address,
-                                newValue
+                                newValue,
+                                addressInfo.matchInfo.valuetype
                             )
                         }
                     }
@@ -175,7 +200,7 @@ fun refreshvaluetable() {
         val value = mem.getvalue(currentsavedaddressList[i].address)
         val line = "${currentsavedaddressList[i].address} $value"
         printWriter.println(line)
-        savedAddresList.add(AddressInfo(MatchInfo(currentsavedaddressList[i].address, value), valtypeselected))
+        savedAddresList.add(AddressInfo(MatchInfo(currentsavedaddressList[i].address, value, currentsavedaddressList[i].valuetype), valtypeselected))
     }
     printWriter.close()
 }
@@ -189,7 +214,8 @@ fun readSavedAddressesFile(): List<MatchInfo> {
             val parts = s.split(" ")
             val addr = parts[0]
             val value = parts[1]
-            savedaddresses.add(MatchInfo(addr, value))
+            val valtype = parts[2]
+            savedaddresses.add(MatchInfo(addr, value, valtype))
         }
     }
 
@@ -230,10 +256,11 @@ fun SavedAddressesTable(
                                 val pid = isattc.savepid()
                                 val value = ""
                                 GlobalScope.launch(Dispatchers.IO) {
-                                    hunt.freezeValueAtAddress(
+                                    val freezelist: MutableList<FreezeInfo> = mutableListOf()
+                                    freezelist.add(FreezeInfo(savedAddressList[rowIndex].matchInfo.address, value, savedAddressList[rowIndex].matchInfo.valuetype))
+                                    hunt.freezeValuesAtAddresses(
                                         pid,
-                                        savedAddressList[rowIndex].matchInfo.address,
-                                        value
+                                        freezelist
                                     )
                                     hunt.setbool(true)
                                 }
@@ -260,8 +287,7 @@ fun SavedAddressesTable(
 
             // num type
             if (colIndex == 2) {
-                val typeDesc: String = valtypeselected
-                Text(text = typeDesc)
+                Text(text = savedAddressList[rowIndex].matchInfo.valuetype)
             }
 
             // value
