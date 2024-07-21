@@ -2,7 +2,6 @@ package com.yervant.huntgames.backend
 
 import com.yervant.huntgames.ui.menu.AddressInfo
 import com.yervant.huntgames.ui.menu.isattached
-import com.yervant.huntgames.ui.menu.valtypeselected
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -22,7 +21,7 @@ class Hunt {
         val pid = isattached().savepid()
         var i = 0
         while (i < addrs.size) {
-            writeValueAtAddress(pid, addrs[i].matchInfo.address, value, valtypeselected)
+            writeValueAtAddress(pid, addrs[i].matchInfo.address, value, addrs[i].matchInfo.valuetype)
             i++
         }
     }
@@ -32,7 +31,7 @@ class Hunt {
         var i = 0
         val freezelist: MutableList<FreezeInfo> = mutableListOf()
         while (i < addrs.size) {
-            freezelist.add(FreezeInfo(addrs[i].matchInfo.address, value, valtypeselected))
+            freezelist.add(FreezeInfo(addrs[i].matchInfo.address, value, addrs[i].matchInfo.valuetype))
             i++
         }
         freezeValuesAtAddresses(pid, freezelist)

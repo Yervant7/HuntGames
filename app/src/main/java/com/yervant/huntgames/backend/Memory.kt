@@ -13,7 +13,7 @@ import java.io.PrintWriter
 class Memory {
 
     enum class NumType {
-        _all, _int, _long, _float, _double;
+        _int, _long, _float, _double, _all;
 
 
         @Override
