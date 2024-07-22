@@ -28,8 +28,10 @@ class HuntingMemory {
             process?.waitFor()
             val file = File(searchOutputPath)
             if (file.exists()) {
-                val out = parseFile(searchOutputPath)
-                output.addAll(out)
+                file.forEachLine { line ->
+                    val va = line.split(" ")
+                    output.add(va[0])
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -143,35 +145,6 @@ class HuntingMemory {
         }
 
         return value
-    }
-
-    fun parseFile(filePath: String): List<String> {
-        val addresses = mutableListOf<String>()
-        var skipNextLine = false
-        var skipFirstLine = true
-
-        File(filePath).forEachLine { line ->
-            if (skipFirstLine) {
-                skipFirstLine = false
-                return@forEachLine
-            }
-
-            if (skipNextLine) {
-                skipNextLine = false
-                return@forEachLine
-            }
-
-            when {
-                line.startsWith("===") -> {
-                    skipNextLine = true
-                }
-                else -> {
-                    addresses.add(line)
-                }
-            }
-        }
-
-        return addresses
     }
 
     fun searchInt(pid: Long, targetValue: Int): List<String> {
@@ -426,7 +399,7 @@ class HuntingMemory {
     }
 
     fun writeassemble(pid: Long, addr: String, assemblycode: String, is64bits: Boolean) {
-        val arg = if(is64bits) {
+        val arg = if (is64bits) {
             "64"
         } else {
             "32"
