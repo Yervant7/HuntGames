@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.common.collect.BiMap
 import com.google.common.collect.HashBiMap
 import com.yervant.huntgames.ui.menu.MatchInfo
+import com.yervant.huntgames.ui.menu.RegionSelected
 import com.yervant.huntgames.ui.menu.isattached
 import com.yervant.huntgames.ui.menu.valtypeselected
 import java.io.File

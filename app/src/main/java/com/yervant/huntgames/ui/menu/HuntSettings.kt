@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.TextField
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.backend.LuaExecute
@@ -23,7 +24,7 @@ private var regionsselected = ""
 
 fun RegionSelected(): String {
     if (regionsselected == "") {
-        regionsselected = "C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM"
+        regionsselected = "C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM,SPLITED_APK"
         return regionsselected
     } else {
         return regionsselected
@@ -36,9 +37,8 @@ fun setRegions(regions: String) {
 
 @Composable
 fun SettingsMenu(overlayContext: OverlayContext?) {
-    val words = listOf("C_ALLOC", "C_BSS", "C_DATA", "C_HEAP", "JAVA_HEAP", "A_ANONYMOUS", "STACK", "CODE_SYSTEM", "ASHMEM")
+    val words = listOf("C_ALLOC", "C_BSS", "C_DATA", "C_HEAP", "JAVA_HEAP", "A_ANONYMOUS", "STACK", "CODE_SYSTEM", "ASHMEM", "SPLITED_APK")
     val selectedWords = remember { mutableStateListOf<String>() }
-    val customRegion = remember { mutableStateOf("") }
     val files = LuaExecute().getLuaFiles()
     val selectedFile = remember { mutableStateOf("") }
     val executeKts = remember { mutableStateOf(false) }
@@ -56,8 +56,10 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
         val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
         LuaExecute().ExecuteLuaAndMenu(file)
     } else if (executeKts.value && selectedFile.value.isNotEmpty()) {
-        val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().executelua(file)
+        LaunchedEffect(Unit) {
+            val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
+            LuaExecute().executelua(file)
+        }
     } else {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -83,26 +85,11 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
                         Text(text = word)
                     }
                 }
-
-                item {
-                    TextField(
-                        value = customRegion.value,
-                        onValueChange = { customRegion.value = it },
-                        label = { Text("Custom Region") },
-                        modifier = Modifier
-                            .fillMaxWidth(0.5f)
-                            .padding(vertical = 8.dp)
-                    )
-                }
                 item {
                     Button(
                         onClick = {
                             val selectedWordsString = selectedWords.joinToString(separator = ",")
-                            if (customRegion.value.isNotBlank()) {
-                                regionsselected = customRegion.value
-                            } else {
-                                regionsselected = selectedWordsString
-                            }
+                            regionsselected = selectedWordsString
                         },
                         modifier = Modifier
                             .padding(16.dp)

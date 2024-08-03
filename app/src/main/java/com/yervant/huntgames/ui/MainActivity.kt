@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
         if (!checkFile()) {
             try {
                 Toast.makeText(this@MainActivity, "Copying RWMem", Toast.LENGTH_SHORT).show()
-                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "RWMem", "bin/RWMem")
+                copyfile.FileUtil.copyAssetFileToInternalStorage(this, "RRWMem", "bin/RWMem")
                 copyfile.FileUtil.copyAssetFileToInternalStorage(this, "libkeystone.so", "bin/libkeystone.so")
                 copyfile.FileUtil.copyAssetFileToInternalStorage(this, "libkeystone.so.0", "bin/libkeystone.so.0")
             } catch (e: IOException) {
