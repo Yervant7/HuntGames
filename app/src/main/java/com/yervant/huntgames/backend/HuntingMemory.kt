@@ -151,7 +151,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-int $pid $targetValue $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-int $pid $targetValue $regions $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -160,7 +160,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-long $pid $targetValue $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-long $pid $targetValue $regions $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -169,7 +169,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-float $pid $targetValue $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-float $pid $targetValue $regions $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -178,7 +178,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-double $pid $targetValue $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-double $pid $targetValue $regions $searchOutputPath"
         currentFilteredAddresses = executeRootCommandWithOutput(command).toMutableList()
         return currentFilteredAddresses
     }
@@ -187,7 +187,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-int $pid '$targetValues' $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-group-int $pid '$targetValues' $regions $searchOutputPath"
         currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
         return currentFilteredAddresses2
     }
@@ -196,7 +196,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-long $pid '$targetValues' $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-group-long $pid '$targetValues' $regions $searchOutputPath"
         currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
         return currentFilteredAddresses2
     }
@@ -205,7 +205,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-float $pid '$targetValues' $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-group-float $pid '$targetValues' $regions $searchOutputPath"
         currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
         return currentFilteredAddresses2
     }
@@ -214,7 +214,7 @@ class HuntingMemory {
         ensureFileDeleted(searchOutputPath)
         val regions = RegionSelected()
         Log.d("HuntingMemory", "Regions: $regions")
-        val command = "LD_LIBRARY_PATH=$binDirPath .$binDirPath/RWMem search-group-double $pid '$targetValues' $regions $searchOutputPath"
+        val command = "LD_LIBRARY_PATH=$binDirPath nice -n -20 .$binDirPath/RWMem search-group-double $pid '$targetValues' $regions $searchOutputPath"
         currentFilteredAddresses2 = executeRootCommandWithOutput3(command).toMutableList()
         return currentFilteredAddresses2
     }
