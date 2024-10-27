@@ -2,141 +2,81 @@ package com.yervant.huntgames.ui.menu
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
-import com.yervant.huntgames.backend.LuaExecute
-import java.io.File
+//import com.yervant.huntgames.backend.LuaExecute
 
-private var regionsselected = ""
-
-fun RegionSelected(): String {
-    if (regionsselected == "") {
-        regionsselected = "C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM,SPLITED_APK"
-        return regionsselected
-    } else {
-        return regionsselected
-    }
-}
-
-fun setRegions(regions: String) {
-    regionsselected = regions
-}
+var regionsselected = 0
 
 @Composable
 fun SettingsMenu(overlayContext: OverlayContext?) {
-    val words = listOf("C_ALLOC", "C_BSS", "C_DATA", "C_HEAP", "JAVA_HEAP", "A_ANONYMOUS", "STACK", "CODE_SYSTEM", "ASHMEM", "SPLITED_APK")
-    val selectedWords = remember { mutableStateListOf<String>() }
-    val files = LuaExecute().getLuaFiles()
-    val selectedFile = remember { mutableStateOf("") }
-    val executeKts = remember { mutableStateOf(false) }
-    val showDynamicInterface = remember { mutableStateOf(false) }
+    val words = listOf(
+        //"ALL",         //所有内存
+        "RECOMMENDED",
+        "B_BAD",       //B内存
+        "C_ALLOC",     //Ca内存
+        "C_BSS",       //Cb内存
+        "C_DATA",      //Cd内存
+        "C_HEAP",      //Ch内存
+        "JAVA_HEAP",   //Jh内存
+        "A_ANONMYOUS", //A内存
+        "CODE_SYSTEM", //Xs内存 r-xp
+        //CODE_APP     /data/ r-xp
 
-    files.forEach { file ->
-        if (file.name == selectedFile.value) {
-            val res = file.readText()
-            if (res.contains("MenuManager"))
-                showDynamicInterface.value = true
-        }
-    }
+        "STACK",       //S内存
+        "ASHMEM",      //As内存
+        "X",           //执行命令内存 r0xp
+        "R0_0",        //可读非执行内存 r0_0
+        "RW_0"
+    )
+    val selectedRegion = remember { mutableIntStateOf(0) }
 
-    if (showDynamicInterface.value && executeKts.value && selectedFile.value.isNotEmpty()) {
-        val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().ExecuteLuaAndMenu(file)
-    } else if (executeKts.value && selectedFile.value.isNotEmpty()) {
-        LaunchedEffect(Unit) {
-            val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-            LuaExecute().executelua(file)
-        }
-    } else {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopStart
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopStart
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                items(words) { word ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = selectedWords.contains(word),
-                            onCheckedChange = {
-                                if (it) {
-                                    selectedWords.add(word)
-                                } else {
-                                    selectedWords.remove(word)
-                                }
+            itemsIndexed(words) { index, word ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = selectedRegion.intValue == index,
+                        onCheckedChange = { isChecked ->
+                            if (isChecked) {
+                                selectedRegion.intValue = index
+                            } else if (selectedRegion.intValue == index) {
+                                selectedRegion.intValue = 0
                             }
-                        )
-                        Text(text = word)
-                    }
-                }
-                item {
-                    Button(
-                        onClick = {
-                            val selectedWordsString = selectedWords.joinToString(separator = ",")
-                            regionsselected = selectedWordsString
-                        },
-                        modifier = Modifier
-                            .padding(16.dp)
-                    ) {
-                        Text("Save Regions")
-                    }
+                        }
+                    )
+                    Text(text = "$index - $word")
                 }
             }
-        }
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopEnd
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .padding(16.dp)
-            ) {
-                items(files) { file ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = selectedFile.value == file.name,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    selectedFile.value = file.name
-                                } else if (selectedFile.value == file.name) {
-                                    selectedFile.value = ""
-                                }
-                            }
-                        )
-                        Text(text = file.name)
-                    }
-                }
-            }
-
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomEnd
-            ) {
+            item {
                 Button(
                     onClick = {
-                        executeKts.value = true
+                        if (selectedRegion.intValue == 0) {
+                            regionsselected = 1000
+                        } else {
+                            regionsselected = (selectedRegion.intValue + 1) * 1000
+                        }
                     },
-                    modifier = Modifier
-                        .padding(16.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Text("Execute Lua")
+                    Text("Save Region")
                 }
             }
         }

@@ -11,12 +11,15 @@ android {
         applicationId = "com.yervant.huntgames"
         minSdk = 29
         targetSdk = 34
-        versionCode = 32
-        versionName = "0.4.0"
+        versionCode = 35
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+        ndk {
+            abiFilters.add("arm64-v8a")
         }
     }
 
@@ -24,6 +27,8 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            multiDexEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -33,8 +38,15 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
     buildFeatures {
         compose = true
+        aidl = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.4.0"
@@ -44,10 +56,13 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    ndkVersion = "26.0.10792818"
+    buildToolsVersion = "34.0.0"
 }
 
 dependencies {
 
+    implementation("com.github.topjohnwu:libsu:6.0.0")
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation("androidx.compose.material:material:1.6.8")
     implementation("androidx.core:core-ktx:1.13.1")

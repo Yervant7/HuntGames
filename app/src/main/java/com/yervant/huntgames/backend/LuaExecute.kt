@@ -6,8 +6,7 @@ import com.yervant.huntgames.backend.Hunt.FreezeInfo
 import com.yervant.huntgames.ui.menu.DynamicScreen
 import com.yervant.huntgames.ui.menu.MatchInfo
 import com.yervant.huntgames.ui.menu.MenuManager
-import com.yervant.huntgames.ui.menu.isattached
-import com.yervant.huntgames.ui.menu.setRegions
+import com.yervant.huntgames.ui.menu.savepid
 import com.yervant.huntgames.ui.menu.valtypeselected
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaValue
@@ -16,7 +15,7 @@ import org.luaj.vm2.lib.TwoArgFunction
 import org.luaj.vm2.lib.jse.JsePlatform
 import java.io.File
 
-
+/*
 class LuaExecute {
 
     fun executelua(script: File) {
@@ -118,34 +117,10 @@ object HG {
                 return LuaValue.NIL
             }
         }
-        globals["HG_filter_value"] = object : OneArgFunction() {
-            override fun call(arg1: LuaValue): LuaValue {
-                val value = arg1.checkjstring()
-                val list: List<MatchInfo> = Memory().readMatchesFile()
-                Memory().scanAgainstValue(value, list)
-                return LuaValue.NIL
-            }
-        }
-        globals["HG_search_value_group"] = object : OneArgFunction() {
-            override fun call(arg1: LuaValue): LuaValue {
-                val value = arg1.checkjstring()
-                val emptylist: List<MatchInfo> = mutableListOf()
-                Memory().scanAgainstValueGroup(value, emptylist)
-                return LuaValue.NIL
-            }
-        }
-        globals["HG_filter_value_group"] = object : OneArgFunction() {
-            override fun call(arg1: LuaValue): LuaValue {
-                val value = arg1.checkjstring()
-                val list: List<MatchInfo> = Memory().readMatchesFile()
-                Memory().scanAgainstValueGroup(value, list)
-                return LuaValue.NIL
-            }
-        }
         globals["HG_read_value"] = object : OneArgFunction() {
             override fun call(arg1: LuaValue): LuaValue {
                 val addr = arg1.checkjstring()
-                val pid = isattached().savepid()
+                val pid = savepid()
                 return when (valtypeselected) {
                     "int" -> LuaValue.valueOf(HuntingMemory().readMemInt(pid, addr))
                     "long" -> LuaValue.valueOf(HuntingMemory().readMemLong(pid, addr).toString())
@@ -159,7 +134,7 @@ object HG {
             override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
                 val value = arg1.checkjstring()
                 val addr = arg2.checkjstring()
-                val pid = isattached().savepid()
+                val pid = savepid()
                 if (addr != null && value != null) {
                     Hunt().writeValueAtAddress(pid, addr, value, valtypeselected)
                 }
@@ -170,7 +145,7 @@ object HG {
             override fun call(arg1: LuaValue, arg2: LuaValue): LuaValue {
                 val value = arg1.checkjstring()
                 val addr = arg2.checkjstring()
-                val pid = isattached().savepid()
+                val pid = savepid()
                 if (addr != null && value != null) {
                     val freezelist: MutableList<FreezeInfo> = mutableListOf()
                     freezelist.add(FreezeInfo(addr, value, valtypeselected))
@@ -181,3 +156,5 @@ object HG {
         }
     }
 }
+
+*/

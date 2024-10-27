@@ -94,7 +94,7 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                             title = "Edit All",
                             defaultValue = "999999999",
                             onConfirm = { input: String ->
-                                Hunt().writeall(savedAddresList, input)
+                                Hunt().writeall(savedAddresList, input, overlayContext)
                             }
                         )
                     }) {
@@ -107,7 +107,7 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                             title = "Freeze All",
                             defaultValue = "999999999",
                             onConfirm = { input: String ->
-                                Hunt().freezeall(savedAddresList, input)
+                                Hunt().freezeall(savedAddresList, input, overlayContext)
                             }
                         )
                     }) {
@@ -118,6 +118,7 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
         }
         SavedAddressesTable(
             modifier = Modifier.weight(0.8f),
+            overlayContext = overlayContext!!,
             savedAddressList = savedAddresList,
             onAddressClicked = { itemIndex: Int ->
                 AddressOverlayDialog(
@@ -134,23 +135,24 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     title = "Edit value of $addressInfo",
                     onConfirm = { newValue: String ->
                         val hunt = Hunt()
-                        val isattc = isattached()
                         if (addressInfo.isFreezed.value) {
                             GlobalScope.launch(Dispatchers.IO) {
                                 val freezelist: MutableList<FreezeInfo> = mutableListOf()
                                 freezelist.add(FreezeInfo(addressInfo.matchInfo.address, newValue, addressInfo.matchInfo.valuetype))
                                 hunt.freezeValuesAtAddresses(
-                                    isattc.savepid(),
-                                    freezelist
+                                    savepid(),
+                                    freezelist,
+                                    overlayContext
                                 )
                                 hunt.setbool(true)
                             }
                         } else {
                             hunt.writeValueAtAddress(
-                                isattc.savepid(),
+                                savepid(),
                                 addressInfo.matchInfo.address,
                                 newValue,
-                                addressInfo.matchInfo.valuetype
+                                addressInfo.matchInfo.valuetype,
+                                overlayContext
                             )
                         }
                     }
@@ -182,7 +184,7 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     savedAddresList.isNotEmpty() &&
                     contentfile.isNotEmpty()
                 ) {
-                    refreshvaluetable()
+                    refreshvaluetable(overlayContext!!)
                     delay(10.seconds)
                 }
             }
@@ -190,14 +192,14 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
     }
 }
 
-fun refreshvaluetable() {
+suspend fun refreshvaluetable(overlayContext: OverlayContext) {
     val mem = Memory()
     val currentsavedaddressList = readSavedAddressesFile()
     val fileOutputStream = FileOutputStream(savedaddressesfile)
     val printWriter = PrintWriter(fileOutputStream)
     var i = 0
     while (i < currentsavedaddressList.size) {
-        val value = mem.getvalue(currentsavedaddressList[i].address)
+        val value = mem.getvalue(currentsavedaddressList[i].address, overlayContext)
         val line = "${currentsavedaddressList[i].address} $value"
         printWriter.println(line)
         savedAddresList.add(AddressInfo(MatchInfo(currentsavedaddressList[i].address, value, currentsavedaddressList[i].valuetype), valtypeselected))
@@ -215,7 +217,7 @@ fun readSavedAddressesFile(): List<MatchInfo> {
             val addr = parts[0]
             val value = parts[1]
             val valtype = parts[2]
-            savedaddresses.add(MatchInfo(addr, value, valtype))
+            savedaddresses.add(MatchInfo(addr.toLong(), value, valtype))
         }
     }
 
@@ -226,6 +228,7 @@ fun readSavedAddressesFile(): List<MatchInfo> {
 @Composable
 fun SavedAddressesTable(
     modifier: Modifier = Modifier,
+    overlayContext: OverlayContext,
     savedAddressList: SnapshotStateList<AddressInfo>,
     onValueClicked: (addressInfo: AddressInfo) -> Unit,
     onAddressClicked: (itemIndex: Int) -> Unit
@@ -252,15 +255,15 @@ fun SavedAddressesTable(
                             savedAddressList[rowIndex].isFreezed.value = checked
                             val hunt = Hunt()
                             if (checked) {
-                                val isattc = isattached()
-                                val pid = isattc.savepid()
+                                val pid = savepid()
                                 val value = ""
                                 GlobalScope.launch(Dispatchers.IO) {
                                     val freezelist: MutableList<FreezeInfo> = mutableListOf()
                                     freezelist.add(FreezeInfo(savedAddressList[rowIndex].matchInfo.address, value, savedAddressList[rowIndex].matchInfo.valuetype))
                                     hunt.freezeValuesAtAddresses(
                                         pid,
-                                        freezelist
+                                        freezelist,
+                                        overlayContext
                                     )
                                     hunt.setbool(true)
                                 }
@@ -281,7 +284,7 @@ fun SavedAddressesTable(
                             onAddressClicked(rowIndex)
                         },
                 ) {
-                    Text(text = savedAddressList[rowIndex].matchInfo.address)
+                    Text(text = savedAddressList[rowIndex].matchInfo.address.toString())
                 }
             }
 

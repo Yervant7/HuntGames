@@ -4,8 +4,6 @@ HuntGames is an open-source project aimed at providing tools for game hunting an
 
 ## Features
 
-- Disassemble functions for better analysis.
-- Write assembly code directly.
 - Search values in memory of process.
 - Write values in memory of process.
 
@@ -13,14 +11,14 @@ HuntGames is an open-source project aimed at providing tools for game hunting an
 
 - ARM64 device
 - Root access
-- Compiled kernel module (refer to the [rwMem repository](https://github.com/Yervant7/rwMem))
+- Compiled kernel module (refer to the [rwProcMem repository](https://github.com/Yervant7/rwProcMem))
 - Unlocked bootloader
 
 ## Installation
 
 1. Download apk in the realeases section
 
-2. Compile the necessary kernel module from the [rwMem repository](https://github.com/Yervant7/rwMem):
+2. Compile the necessary kernel module from the [rwProcMem repository](https://github.com/Yervant7/rwProcMem):
     Instructions in the repository see too [Kernel_Action repository](https://github.com/Yervant7/Kernel_Action)
  
 3. Load the compiled module:
@@ -44,10 +42,8 @@ We welcome contributions! Please fork the repository, create a feature branch, a
 
 ## Acknowledgments
 
-- Inspiration and guidance from the
-ri-char: https://github.com/ri-char
+- Inspiration and Source of Kernel Module from the
 abcz316: https://github.com/abcz316
-for the Kernel Module Read and Write to Memory
 
 KuhakuPixel: https://github.com/KuhakuPixel
 for the ui

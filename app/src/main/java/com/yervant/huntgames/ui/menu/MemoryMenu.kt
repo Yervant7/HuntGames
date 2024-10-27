@@ -1,9 +1,6 @@
 package com.yervant.huntgames.ui.menu
 
 import android.content.res.Configuration
-import android.os.Handler
-import android.os.Looper
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,19 +44,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import my.nanihadesuka.compose.ColumnScrollbar
-import java.io.File
-import java.io.FileOutputStream
-import java.io.PrintWriter
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import com.yervant.huntgames.backend.Memory.Companion.matches
 import kotlinx.coroutines.isActive
-
 
 // ======================= drop down options =================
 private var defaultValueInitialized: Boolean = false
@@ -81,13 +70,9 @@ private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(mutableListOf())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
 
-// ================================================================
-private val fileName = "/data/data/com.yervant.huntgames/files/matches.txt"
-private val filenamepath = "/data/data/com.yervant.huntgames/files/bin/filteroutput"
-// ================================================================
 private var address = ""
 
-data class MatchInfo(val address: String, val prevValue: String, val valuetype: String)
+data class MatchInfo(val address: Long, val prevValue: String, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
 
@@ -101,9 +86,7 @@ fun getCurrentScanOption(): ScanOptions {
 
 @Composable
 fun MemoryMenu(overlayContext: OverlayContext?) {
-    val mem = Memory()
-    val currentaddressList = mem.readMatchesFile()
-    val showAssemblyInterface = remember { mutableStateOf(false) }
+    val currentaddressList = matches
 
     LaunchedEffect(Unit) {
         if (currentaddressList.isEmpty()) {
@@ -113,7 +96,7 @@ fun MemoryMenu(overlayContext: OverlayContext?) {
                 if (currentaddressList.isEmpty()) {
                     println("No need to refresh")
                 } else {
-                    refreshvalue()
+                    refreshvalue(overlayContext!!)
                     delay(50.seconds)
                 }
                 delay(10.seconds)
@@ -123,57 +106,60 @@ fun MemoryMenu(overlayContext: OverlayContext?) {
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
     val coroutineScope: CoroutineScope = rememberCoroutineScope()
 
-    if (showAssemblyInterface.value) {
-        DisassembleMenu(overlayContext, address)
-    } else {
-        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, content = ({
-            _MemoryMenu(
-                snackbarHostState = snackbarHostState,
-                coroutineScope = coroutineScope,
-                overlayContext = overlayContext,
-                showAssemblyInterface = showAssemblyInterface
-            )
-        }))
-    }
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, content = ({
+        _MemoryMenu(
+            snackbarHostState = snackbarHostState,
+            coroutineScope = coroutineScope,
+            overlayContext = overlayContext,
+        )
+    }))
 }
 
-fun refreshvalue() {
+suspend fun refreshvalue(overlayContext: OverlayContext) {
     val mem = Memory()
-    val currentaddressList: List<MatchInfo> = mem.readMatchesFile()
+    val currentaddressList: List<MatchInfo> = matches
     if (currentaddressList.isNotEmpty()) {
-        val fileOutputStream = FileOutputStream(fileName)
-        val printWriter = PrintWriter(fileOutputStream)
+        val match: MutableList<MatchInfo> = mutableListOf()
         var i = 0
         while (i < currentaddressList.size) {
-            val value = mem.getvalue(currentaddressList[i].address)
-            val line = "${currentaddressList[i].address} $value ${currentaddressList[i].valuetype}"
-            printWriter.println(line)
+            if (i < 1000) {
+                val value = mem.getvalue(currentaddressList[i].address, overlayContext)
+                match.add(MatchInfo(currentaddressList[i].address, value, currentaddressList[i].valuetype))
+            } else {
+                break
+            }
             i++
         }
-        printWriter.close()
+        matches.clear()
+        matches.addAll(match)
         UpdateMatches()
     }
 }
 
 var valtypeselected: String = "int"
-var valuestype: List<String> = listOf("int", "long", "float", "double", "all")
+var valuestype: List<String> = listOf("int", "long", "float", "double")
+
+fun isattached(): Boolean {
+    val pid = savepid()
+    if (pid == -1L) {
+        return false
+    } else {
+        return true
+    }
+}
 
 @Composable
 fun _MemoryMenu(
     snackbarHostState: SnackbarHostState,
     coroutineScope: CoroutineScope,
     overlayContext: OverlayContext?,
-    showAssemblyInterface: MutableState<Boolean>
 ) {
-    val context = LocalContext.current
-    val handler = remember { Handler(Looper.getMainLooper()) }
 
     if (!defaultValueInitialized) {
         scanTypeSelectedOptionIdx.value = Operator.values().indexOf(HuntSettings.defaultScanType)
         defaultValueInitialized = true
     }
-    val isattc = isattached()
-    val isAttached: Boolean = isattc.alert()
+    val isAttached: Boolean = isattached()
     valueTypeEnabled.value = isAttached && !initialScanDone.value
     scanTypeEnabled.value = isAttached
 
@@ -221,19 +207,6 @@ fun _MemoryMenu(
                         )
                     }
                 },
-                onMatchLongClicked = { matchInfo: MatchInfo ->
-                    overlayContext?.let {
-                        OverlayInfoDialog(it).show(
-                            title = "Long Press Detected",
-                            text = "Address: ${matchInfo.address}\nOpen in Assemble?",
-                            onConfirm = {
-                                showAssemblyInterface.value = true
-                                address = matchInfo.address
-                            },
-                            onClose = {}
-                        )
-                    }
-                }
             )
             MatchesSetting(
                 modifier = matchesSettingModifier,
@@ -243,26 +216,25 @@ fun _MemoryMenu(
                 valueTypeEnabled = valueTypeEnabled,
                 valueTypeSelectedOptionIdx = valueTypeSelectedOptionIdx,
                 nextScanEnabled = isAttached && !isScanOnGoing.value,
-                nextScanClicked = fun() {
-                    onNextScanClicked(
-                        currentmatches = currentMatchesList.value,
-                        scanOptions = getCurrentScanOption(),
-                        onBeforeScanStart = {
-                            isScanOnGoing.value = true
-                        },
-                        onScanDone = {
-                            isScanOnGoing.value = false
-                            initialScanDone.value = true
-                            UpdateMatches()
-                            handler.post {
-                                Toast.makeText(context, "Scan completed", Toast.LENGTH_SHORT).show()
+                nextScanClicked = {
+                    coroutineScope.launch {
+                        onNextScanClicked(
+                            scanOptions = getCurrentScanOption(),
+                            overlayContext = overlayContext!!,
+                            onBeforeScanStart = {
+                                isScanOnGoing.value = true
+                            },
+                            onScanDone = {
+                                isScanOnGoing.value = false
+                                initialScanDone.value = true
+                                UpdateMatches()
+                            },
+                            onScanError = { e: Exception ->
+                                showErrorDialog.value = true
+                                errorDialogMsg.value = e.stackTraceToString()
                             }
-                        },
-                        onScanError = { e: Exception ->
-                            showErrorDialog.value = true
-                            errorDialogMsg.value = e.stackTraceToString()
-                        }
-                    )
+                        )
+                    }
                 },
                 newScanEnabled = isAttached && initialScanDone.value && !isScanOnGoing.value,
                 newScanClicked = {
@@ -308,13 +280,9 @@ fun _MemoryMenu(
 fun ResetMatches() {
     currentMatchesList.value = emptyList()
     matchesStatusText.value = "0 matches"
-    val file = File(fileName)
-    if (file.exists()) {
-        val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "rm $fileName"))
-        process.waitFor()
+    if (matches.isNotEmpty()) {
+        matches.clear()
     }
-    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "rm -rf $filenamepath"))
-    process.waitFor()
 }
 
 @Composable
@@ -323,12 +291,9 @@ private fun MatchesTable(
     matches: List<MatchInfo>,
     matchesStatusText: String,
     onMatchClicked: (matchInfo: MatchInfo) -> Unit,
-    onCopyAllMatchesToAddressTable: () -> Unit,
-    onMatchLongClicked: (matchInfo: MatchInfo) -> Unit
+    onCopyAllMatchesToAddressTable: () -> Unit
 ) {
     val context = LocalContext.current
-    var isLongPressDetected by remember { mutableStateOf(false) }
-    var longPressStartTime by remember { mutableLongStateOf(0L) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -353,21 +318,7 @@ private fun MatchesTable(
             },
             drawCell = { rowIndex: Int, colIndex: Int ->
                 if (colIndex == 0) {
-                    Text(text = matches[rowIndex].address, modifier = Modifier.pointerInput(Unit) {
-                        detectTapGestures(
-                            onLongPress = {
-                                isLongPressDetected = true
-                                longPressStartTime = System.currentTimeMillis()
-                            },
-                            onPress = {
-                                awaitRelease()
-                                if (isLongPressDetected && System.currentTimeMillis() - longPressStartTime >= 1000) {
-                                    onMatchLongClicked(matches[rowIndex])
-                                }
-                                isLongPressDetected = false
-                            }
-                        )
-                    })
+                    Text(text = matches[rowIndex].address.toString())
                 }
                 if (colIndex == 1) {
                     Text(text = matches[rowIndex].prevValue)
@@ -382,9 +333,10 @@ private fun MatchesTable(
 
 fun UpdateMatches() {
     val mem = Memory()
-    val matchesCount: Int = mem.getMatchCount(mem.readMatchesFile())
+    val matchesCount: Int = matches.size
     val shownMatchesCount: Int = min(matchesCount, HuntSettings.maxShownMatchesCount)
     // update ui
+    currentMatchesList.value = emptyList()
     currentMatchesList.value = mem.listMatches(HuntSettings.maxShownMatchesCount)
     matchesStatusText.value = "$matchesCount matches (showing ${shownMatchesCount})"
 }

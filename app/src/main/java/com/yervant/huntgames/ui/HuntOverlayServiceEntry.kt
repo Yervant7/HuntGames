@@ -88,5 +88,4 @@ class HuntOverlayServiceEntry : OverlayServiceEntry() {
     override fun onOverlayServiceStarted() {
         overlayDraggableButtonController.enableView()
     }
-
 }
