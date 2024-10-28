@@ -8,7 +8,6 @@ import kotlinx.coroutines.withContext
 class ScanOptions(
     val inputVal: String,
     val numType: Memory.NumType,
-    val scanType: Memory.Operator,
     val initialScanDone: Boolean,
 ) {
 }

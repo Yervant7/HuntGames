@@ -1,11 +1,10 @@
 package com.yervant.huntgames.backend
 
 import android.util.Log
-import com.google.common.collect.BiMap
-import com.google.common.collect.HashBiMap
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.ui.menu.MatchInfo
-import com.yervant.huntgames.ui.menu.savepid
+import com.yervant.huntgames.ui.menu.getscantype
+import com.yervant.huntgames.ui.menu.isattached
 import com.yervant.huntgames.ui.menu.valtypeselected
 
 class Memory {
@@ -28,10 +27,6 @@ class Memory {
         }
     }
 
-    enum class Operator {
-        greater, less, equal, greaterEqual, lessEqual, notEqual, unknown
-    }
-
     fun listMatches(maxCount: Int): List<MatchInfo> {
         return if (maxCount > 0 && matches.size > maxCount) {
             matches.take(maxCount)
@@ -40,21 +35,21 @@ class Memory {
         }
     }
 
-    suspend fun getvalue(addr: Long, overlayContext: OverlayContext): String {
-        val pid = savepid()
+    suspend fun getvalues(addresses: LongArray, overlayContext: OverlayContext): List<Any> {
+        val pid = isattached().savepid()
         val hunt = HuntingMemory()
-        val result = when (valtypeselected) {
-            "int" -> hunt.readMemInt(pid, addr, overlayContext).toString()
-            "long" -> hunt.readMemLong(pid, addr, overlayContext).toString()
-            "float" -> hunt.readMemFloat(pid, addr, overlayContext).toString()
-            "double" -> hunt.readMemDouble(pid, addr, overlayContext).toString()
+        val valuesArray = when (valtypeselected) {
+            "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+            "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+            "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+            "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
             else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
         }
-        return result
+        return valuesArray
     }
 
     suspend fun gotoAddress(address: String, overlayContext: OverlayContext) {
-        val pid = savepid()
+        val pid = isattached().savepid()
         val hunt = HuntingMemory()
 
         val cleanedAddr = if (address.startsWith("0x")) {
@@ -63,22 +58,24 @@ class Memory {
             address
         }
 
-        val valueint = hunt.readMemInt(pid, cleanedAddr.toLong(16), overlayContext)
-        val valuelong = hunt.readMemLong(pid, cleanedAddr.toLong(16), overlayContext)
-        val valuefloat = hunt.readMemFloat(pid, cleanedAddr.toLong(16), overlayContext)
-        val valuedouble = hunt.readMemDouble(pid, cleanedAddr.toLong(16), overlayContext)
+        val addrs = longArrayOf(cleanedAddr.toLong(16))
+
+        val valueint = hunt.readMultiInt(pid, addrs, overlayContext)
+        val valuelong = hunt.readMultiLong(pid, addrs, overlayContext)
+        val valuefloat = hunt.readMultiFloat(pid, addrs, overlayContext)
+        val valuedouble = hunt.readMultiDouble(pid, addrs, overlayContext)
         val values: MutableList<MatchInfo> = mutableListOf()
-        if (valueint != 0) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valueint.toString(), "int"))
+        if (valueint[0] != 0) {
+            values.add(MatchInfo(cleanedAddr.toLong(16), valueint[0].toString(), "int"))
         }
-        if (valuelong != 0L) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuelong.toString(), "long"))
+        if (valuelong[0] != 0L) {
+            values.add(MatchInfo(cleanedAddr.toLong(16), valuelong[0].toString(), "long"))
         }
-        if (valuefloat != 0.0f) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuefloat.toString(), "float"))
+        if (valuefloat[0] != 0.0f) {
+            values.add(MatchInfo(cleanedAddr.toLong(16), valuefloat[0].toString(), "float"))
         }
-        if (valuedouble != 0.0) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuedouble.toString(), "double"))
+        if (valuedouble[0] != 0.0) {
+            values.add(MatchInfo(cleanedAddr.toLong(16), valuedouble[0].toString(), "double"))
         }
         matches.clear()
         if (values.isNotEmpty()) {
@@ -89,7 +86,7 @@ class Memory {
     }
 
     suspend fun gotoAddressAndOffset(addr: String, offset: String, issub: Boolean, overlayContext: OverlayContext) {
-        val pid = savepid()
+        val pid = isattached().savepid()
         val hunt = HuntingMemory()
 
         val cleanedAddr = if (addr.startsWith("0x")) {
@@ -109,23 +106,25 @@ class Memory {
             cleanedAddr.toLong(16) + offset_f.toLong(16)
         }
 
-        val valueint = hunt.readMemInt(pid, address, overlayContext)
-        val valuelong = hunt.readMemLong(pid, address, overlayContext)
-        val valuefloat = hunt.readMemFloat(pid, address, overlayContext)
-        val valuedouble = hunt.readMemDouble(pid, address, overlayContext)
+        val addrs = longArrayOf(address)
+
+        val valueint = hunt.readMultiInt(pid, addrs, overlayContext)
+        val valuelong = hunt.readMultiLong(pid, addrs, overlayContext)
+        val valuefloat = hunt.readMultiFloat(pid, addrs, overlayContext)
+        val valuedouble = hunt.readMultiDouble(pid, addrs, overlayContext)
 
         val values: MutableList<MatchInfo> = mutableListOf()
-        if (valueint != 0) {
-            values.add(MatchInfo(address, valueint.toString(), "int"))
+        if (valueint[0] != 0) {
+            values.add(MatchInfo(address, valueint[0].toString(), "int"))
         }
-        if (valuelong != 0L) {
-            values.add(MatchInfo(address, valuelong.toString(), "long"))
+        if (valuelong[0] != 0L) {
+            values.add(MatchInfo(address, valuelong[0].toString(), "long"))
         }
-        if (valuefloat != 0.0f) {
-            values.add(MatchInfo(address, valuefloat.toString(), "float"))
+        if (valuefloat[0] != 0.0f) {
+            values.add(MatchInfo(address, valuefloat[0].toString(), "float"))
         }
-        if (valuedouble != 0.0) {
-            values.add(MatchInfo(address, valuedouble.toString(), "double"))
+        if (valuedouble[0] != 0.0) {
+            values.add(MatchInfo(address, valuedouble[0].toString(), "double"))
         }
         matches.clear()
         if (values.isNotEmpty()) {
@@ -138,32 +137,56 @@ class Memory {
 
     suspend fun scanAgainstValue(numValStr: String, overlayContext: OverlayContext) {
         try {
-            val pid = savepid()
+            val pid = isattached().savepid()
             val hunt = HuntingMemory()
             val results: MutableList<MatchInfo> = mutableListOf()
+            val scantype = getscantype()
+            val value = if (numValStr.contains("..")) {
+                numValStr.split("..")
+            } else {
+                listOf(numValStr, "0")
+            }
 
             Log.d("Memory", "value type: $valtypeselected")
             if (matches.isEmpty()) {
                 val addresses = when (valtypeselected) {
-                    "int" -> hunt.searchInt(pid, numValStr.toInt(), overlayContext)
-                    "long" -> hunt.searchLong(pid, numValStr.toLong(), overlayContext)
-                    "float" -> hunt.searchFloat(pid, numValStr.toFloat(), overlayContext)
-                    "double" -> hunt.searchDouble(pid, numValStr.toDouble(), overlayContext)
+                    "int" -> hunt.searchInt(pid, value[0].toInt(), value[1].toInt(), scantype, overlayContext)
+                    "long" -> hunt.searchLong(pid, value[0].toLong(), value[1].toLong(), scantype, overlayContext)
+                    "float" -> hunt.searchFloat(pid, value[0].toFloat(), value[1].toFloat(), scantype, overlayContext)
+                    "double" -> hunt.searchDouble(pid, value[0].toDouble(), value[1].toDouble(), scantype, overlayContext)
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
-                for (address in addresses) {
-                    results.add(MatchInfo(address, numValStr, valtypeselected))
+                val valuesArray = when (valtypeselected) {
+                    "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                    "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                    "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                    "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                }
+                var i = 0
+                while (i < addresses.size && i < valuesArray.size) {
+                    results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
+                    i++
                 }
             } else {
                 val addresses = when (valtypeselected) {
-                    "int" -> hunt.filterMemInt(pid, numValStr.toInt(), overlayContext)
-                    "long" -> hunt.filterMemLong(pid, numValStr.toLong(), overlayContext)
-                    "float" -> hunt.filterMemFloat(pid, numValStr.toFloat(), overlayContext)
-                    "double" -> hunt.filterMemDouble(pid, numValStr.toDouble(), overlayContext)
+                    "int" -> hunt.filterMemInt(pid, value[0].toInt(), value[1].toInt(), overlayContext)
+                    "long" -> hunt.filterMemLong(pid, value[0].toLong(), value[1].toLong(), overlayContext)
+                    "float" -> hunt.filterMemFloat(pid, value[0].toFloat(), value[1].toFloat(), overlayContext)
+                    "double" -> hunt.filterMemDouble(pid, value[0].toDouble(), value[1].toDouble(), overlayContext)
                     else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
                 }
-                for (address in addresses) {
-                    results.add(MatchInfo(address, numValStr, valtypeselected))
+                val valuesArray = when (valtypeselected) {
+                    "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                    "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                    "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                    "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                }
+                var i = 0
+                while (i < addresses.size && i < valuesArray.size) {
+                    results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
+                    i++
                 }
             }
             matches.clear()
@@ -178,29 +201,13 @@ class Memory {
         }
     }
 
-    // todo
     companion object {
-
-        // https://stackoverflow.com/a/507658/14073678
-        val operatorEnumToSymbolBiMap: BiMap<Operator, String> = HashBiMap.create()
-
         var matches: MutableList<MatchInfo> = mutableListOf()
-
-        init {
-            // operatorEnumToSymbolBiMap.put(Operator.greater, ">")
-            //operatorEnumToSymbolBiMap.put(Operator.less, "<")
-            operatorEnumToSymbolBiMap.put(Operator.equal, "=")
-            // operatorEnumToSymbolBiMap.put(Operator.greaterEqual, ">=")
-            // operatorEnumToSymbolBiMap.put(Operator.lessEqual, "<=")
-            // operatorEnumToSymbolBiMap.put(Operator.notEqual, "!=")
-        }
     }
 }
 
 class HuntSettings {
     companion object {
         val maxShownMatchesCount: Int = 1000
-        // default to exact scan
-        val defaultScanType: Memory.Operator = Memory.Operator.equal;
     }
 }

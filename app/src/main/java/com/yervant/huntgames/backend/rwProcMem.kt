@@ -20,17 +20,6 @@ class rwProcMem {
 
     private var onHuntServiceConnected: (() -> Unit)? = null
 
-    companion object {
-        init {
-            Shell.enableVerboseLogging
-            Shell.setDefaultBuilder(
-                Shell.Builder.create()
-                    .setFlags(Shell.FLAG_MOUNT_MASTER)
-                    .setTimeout(10)
-            )
-        }
-    }
-
     private fun rootCheck(): Boolean {
         val output = executeRootCommand("id")
         if (output.isEmpty()) {
@@ -115,34 +104,15 @@ class rwProcMem {
         return res
     }
 
-    fun getpid(pkgname: String, overlayContext: OverlayContext, onResult: (Long) -> Unit) {
-        if (pkgname.isNotEmpty()) {
-            ensureHuntServiceConnected(overlayContext) {
-                huntService?.let {
-                    try {
-                        val res = it.igetpidtarget(pkgname)
-                        onResult(res)
-                    } catch (e: Exception) {
-                        Log.e("rwProcMem", "get pid target failed", e)
-                        onResult(-1L)
-                    }
-                } ?: run {
-                    Log.e("rwProcMem", "HuntService is not connected")
-                    onResult(-1L)
-                }
-            }
-        }
-    }
-
-    fun searchMemoryInt(pid: Long, searchValue: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun searchMemoryInt(pid: Long, searchValue: Int, searchValue2: Int, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1000
+                        range = 1
                     }
-                    val res: LongArray = it.isearchMemoryInt(pid, searchValue, range, false)
+                    val res: LongArray = it.isearchMemoryInt(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error searching int", e)
@@ -155,15 +125,15 @@ class rwProcMem {
         }
     }
 
-    fun searchMemoryLong(pid: Long, searchValue: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun searchMemoryLong(pid: Long, searchValue: Long, searchValue2: Long, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1000
+                        range = 1
                     }
-                    val res: LongArray = it.isearchMemoryLong(pid, searchValue, range, false)
+                    val res: LongArray = it.isearchMemoryLong(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error searching int", e)
@@ -176,15 +146,15 @@ class rwProcMem {
         }
     }
 
-    fun searchMemoryFloat(pid: Long, searchValue: Float, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun searchMemoryFloat(pid: Long, searchValue: Float, searchValue2: Float, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1000
+                        range = 1
                     }
-                    val res: LongArray = it.isearchMemoryFloat(pid, searchValue, range, false)
+                    val res: LongArray = it.isearchMemoryFloat(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error searching int", e)
@@ -197,15 +167,15 @@ class rwProcMem {
         }
     }
 
-    fun searchMemoryDouble(pid: Long, searchValue: Double, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun searchMemoryDouble(pid: Long, searchValue: Double, searchValue2: Double, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1000
+                        range = 1
                     }
-                    val res: LongArray = it.isearchMemoryDouble(pid, searchValue, range, false)
+                    val res: LongArray = it.isearchMemoryDouble(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error searching int", e)
@@ -218,11 +188,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryInt(pid, addressArray, filterValue)
+                    val res: LongArray = it.ifilterMemoryInt(pid, addressArray, filterValue, filterValue2)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -235,11 +205,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryLong(pid, addressArray, filterValue)
+                    val res: LongArray = it.ifilterMemoryLong(pid, addressArray, filterValue, filterValue2)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -252,11 +222,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryFloat(pid, addressArray, filterValue)
+                    val res: LongArray = it.ifilterMemoryFloat(pid, addressArray, filterValue, filterValue2)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -269,11 +239,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryDouble(pid, addressArray, filterValue)
+                    val res: LongArray = it.ifilterMemoryDouble(pid, addressArray, filterValue, filterValue2)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -286,79 +256,79 @@ class rwProcMem {
         }
     }
 
-    fun readMemoryInt(address: Long, pid: Long, overlayContext: OverlayContext, onResult: (Int) -> Unit) {
+    fun readMultipleInt(addresses: LongArray, pid: Long, overlayContext: OverlayContext, onResult: (IntArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res = it.ireadMemoryInt(address, pid)
+                    val res = it.ireadMultipleInt(addresses, pid)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error reading int", e)
-                    onResult(-1)
+                    onResult(intArrayOf())
                 }
             } ?: run {
                 Log.e("rwProcMem", "HuntService is not connected")
-                onResult(-1)
+                onResult(intArrayOf())
             }
         }
     }
 
-    fun readMemoryLong(address: Long, pid: Long, overlayContext: OverlayContext, onResult: (Long) -> Unit) {
+    fun readMultipleLong(addresses: LongArray, pid: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res = it.ireadMemoryLong(address, pid)
+                    val res = it.ireadMultipleLong(addresses, pid)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error reading int", e)
-                    onResult(-1L)
+                    onResult(longArrayOf())
                 }
             } ?: run {
                 Log.e("rwProcMem", "HuntService is not connected")
-                onResult(-1L)
+                onResult(longArrayOf())
             }
         }
     }
 
-    fun readMemoryFloat(address: Long, pid: Long, overlayContext: OverlayContext, onResult: (Float) -> Unit) {
+    fun readMultipleFloat(addresses: LongArray, pid: Long, overlayContext: OverlayContext, onResult: (FloatArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res = it.ireadMemoryFloat(address, pid)
+                    val res = it.ireadMultipleFloat(addresses, pid)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error reading int", e)
-                    onResult(0.0f)
+                    onResult(floatArrayOf())
                 }
             } ?: run {
                 Log.e("rwProcMem", "HuntService is not connected")
-                onResult(0.0f)
+                onResult(floatArrayOf())
             }
         }
     }
 
-    fun readMemoryDouble(address: Long, pid: Long, overlayContext: OverlayContext, onResult: (Double) -> Unit) {
+    fun readMultipleDouble(addresses: LongArray, pid: Long, overlayContext: OverlayContext, onResult: (DoubleArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res = it.ireadMemoryDouble(address, pid)
+                    val res = it.ireadMultipleDouble(addresses, pid)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error reading int", e)
-                    onResult(0.0)
+                    onResult(doubleArrayOf())
                 }
             } ?: run {
                 Log.e("rwProcMem", "HuntService is not connected")
-                onResult(0.0)
+                onResult(doubleArrayOf())
             }
         }
     }
 
-    fun writeMemoryInt(pid: Long, address: Long, value: Int, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
+    fun writeMultipleInt(pid: Long, addresses: LongArray, value: Int, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    it.iwriteMemoryInt(pid, address, value)
+                    it.iwriteMultipleInt(pid, addresses, value)
                     onComplete()
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error writing int", e)
@@ -371,11 +341,11 @@ class rwProcMem {
         }
     }
 
-    fun writeMemoryLong(pid: Long, address: Long, value: Long, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
+    fun writeMultipleLong(pid: Long, addresses: LongArray, value: Long, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    it.iwriteMemoryLong(pid, address, value)
+                    it.iwriteMultipleLong(pid, addresses, value)
                     onComplete()
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error writing int", e)
@@ -388,11 +358,11 @@ class rwProcMem {
         }
     }
 
-    fun writeMemoryFloat(pid: Long, address: Long, value: Float, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
+    fun writeMultipleFloat(pid: Long, addresses: LongArray, value: Float, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    it.iwriteMemoryFloat(pid, address, value)
+                    it.iwriteMultipleFloat(pid, addresses, value)
                     onComplete()
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error writing int", e)
@@ -405,11 +375,11 @@ class rwProcMem {
         }
     }
 
-    fun writeMemoryDouble(pid: Long, address: Long, value: Double, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
+    fun writeMultipleDouble(pid: Long, addresses: LongArray, value: Double, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    it.iwriteMemoryDouble(pid, address, value)
+                    it.iwriteMultipleDouble(pid, addresses, value)
                     onComplete()
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error writing int", e)

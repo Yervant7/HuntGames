@@ -36,110 +36,104 @@ class HuntService : RootService() {
             return checkrootjni()
         }
 
-        override fun ireadMemoryInt(address: Long, pid: Long): Int {
-            return readMemoryInt(address, pid)
+        override fun ireadMultipleInt(addresses: LongArray, pid: Long): IntArray {
+            return readMultipleInt(addresses, pid)
         }
 
-        override fun ireadMemoryLong(address: Long, pid: Long): Long {
-            return readMemoryLong(address, pid)
+        override fun ireadMultipleLong(addresses: LongArray, pid: Long): LongArray {
+            return readMultipleLong(addresses, pid)
         }
 
-        override fun ireadMemoryFloat(address: Long, pid: Long): Float {
-            return readMemoryFloat(address, pid)
+        override fun ireadMultipleFloat(addresses: LongArray, pid: Long): FloatArray {
+            return readMultipleFloat(addresses, pid)
         }
 
-        override fun ireadMemoryDouble(address: Long, pid: Long): Double {
-            return readMemoryDouble(address, pid)
+        override fun ireadMultipleDouble(addresses: LongArray, pid: Long): DoubleArray {
+            return readMultipleDouble(addresses, pid)
         }
 
-        override fun iwriteMemoryInt(pid: Long, address: Long, value: Int) {
-            writeMemoryInt(pid, address, value)
+        override fun iwriteMultipleInt(pid: Long, addresses: LongArray, value: Int) {
+            writeMultipleInt(pid, addresses, value)
         }
 
-        override fun iwriteMemoryLong(pid: Long, address: Long, value: Long) {
-            writeMemoryLong(pid, address, value)
+        override fun iwriteMultipleLong(pid: Long, addresses: LongArray, value: Long) {
+            writeMultipleLong(pid, addresses, value)
         }
 
-        override fun iwriteMemoryFloat(pid: Long, address: Long, value: Float) {
-            writeMemoryFloat(pid, address, value)
+        override fun iwriteMultipleFloat(pid: Long, addresses: LongArray, value: Float) {
+            writeMultipleFloat(pid, addresses, value)
         }
 
-        override fun iwriteMemoryDouble(pid: Long, address: Long, value: Double) {
-            writeMemoryDouble(pid, address, value)
+        override fun iwriteMultipleDouble(pid: Long, addresses: LongArray, value: Double) {
+            writeMultipleDouble(pid, addresses, value)
         }
 
-        override fun isearchMemoryInt(pid: Long, searchValue: Int, range: Int, physicalMemoryOnly: Boolean): LongArray {
-            return searchMemoryInt(pid, searchValue, range, physicalMemoryOnly)
+        override fun isearchMemoryInt(pid: Long, searchValue: Int, searchValue2: Int, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray {
+            return searchMemoryInt(pid, searchValue, searchValue2, range, scantype, physicalMemoryOnly)
         }
 
-        override fun isearchMemoryLong(pid: Long, searchValue: Long, range: Int, physicalMemoryOnly: Boolean): LongArray {
-            return searchMemoryLong(pid, searchValue, range, physicalMemoryOnly)
+        override fun isearchMemoryLong(pid: Long, searchValue: Long, searchValue2: Long, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray {
+            return searchMemoryLong(pid, searchValue, searchValue2, range, scantype, physicalMemoryOnly)
         }
 
-        override fun isearchMemoryFloat(pid: Long, searchValue: Float, range: Int, physicalMemoryOnly: Boolean): LongArray {
-            return searchMemoryFloat(pid, searchValue, range, physicalMemoryOnly)
+        override fun isearchMemoryFloat(pid: Long, searchValue: Float, searchValue2: Float, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray {
+            return searchMemoryFloat(pid, searchValue, searchValue2, range, scantype, physicalMemoryOnly)
         }
 
-        override fun isearchMemoryDouble(pid: Long, searchValue: Double, range: Int, physicalMemoryOnly: Boolean): LongArray {
-            return searchMemoryDouble(pid, searchValue, range, physicalMemoryOnly)
+        override fun isearchMemoryDouble(pid: Long, searchValue: Double, searchValue2: Double, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray {
+            return searchMemoryDouble(pid, searchValue, searchValue2, range, scantype, physicalMemoryOnly)
         }
 
-        override fun ifilterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int): LongArray {
-            return filterMemoryInt(pid, addressArray, filterValue)
+        override fun ifilterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int): LongArray {
+            return filterMemoryInt(pid, addressArray, filterValue, filterValue2)
         }
 
-        override fun ifilterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long): LongArray {
-            return filterMemoryLong(pid, addressArray, filterValue)
+        override fun ifilterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long): LongArray {
+            return filterMemoryLong(pid, addressArray, filterValue, filterValue2)
         }
 
-        override fun ifilterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float): LongArray {
-            return filterMemoryFloat(pid, addressArray, filterValue)
+        override fun ifilterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float): LongArray {
+            return filterMemoryFloat(pid, addressArray, filterValue, filterValue2)
         }
 
-        override fun ifilterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double): LongArray {
-            return filterMemoryDouble(pid, addressArray, filterValue)
-        }
-
-        override fun igetpidtarget(pkgname: String): Long {
-            return getpidtarget(pkgname)
+        override fun ifilterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double): LongArray {
+            return filterMemoryDouble(pid, addressArray, filterValue, filterValue2)
         }
     }
 
     external fun checkrootjni(): Boolean
 
-    external fun getpidtarget(pkgname: String): Long
+    external fun readMultipleInt(address: LongArray, pid: Long): IntArray
 
-    external fun readMemoryInt(address: Long, pid: Long): Int
+    external fun readMultipleLong(address: LongArray, pid: Long): LongArray
 
-    external fun readMemoryLong(address: Long, pid: Long): Long
+    external fun readMultipleFloat(address: LongArray, pid: Long): FloatArray
 
-    external fun readMemoryFloat(address: Long, pid: Long): Float
+    external fun readMultipleDouble(address: LongArray, pid: Long): DoubleArray
 
-    external fun readMemoryDouble(address: Long, pid: Long): Double
+    external fun writeMultipleInt(pid: Long, address: LongArray, value: Int)
 
-    external fun writeMemoryInt(pid: Long, address: Long, value: Int)
+    external fun writeMultipleLong(pid: Long, address: LongArray, value: Long)
 
-    external fun writeMemoryLong(pid: Long, address: Long, value: Long)
+    external fun writeMultipleFloat(pid: Long, address: LongArray, value: Float)
 
-    external fun writeMemoryFloat(pid: Long, address: Long, value: Float)
+    external fun writeMultipleDouble(pid: Long, address: LongArray, value: Double)
 
-    external fun writeMemoryDouble(pid: Long, address: Long, value: Double)
+    external fun searchMemoryInt(pid: Long, searchValue: Int, searchValue2: Int, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray
 
-    external fun searchMemoryInt(pid: Long, searchValue: Int, range: Int, physicalMemoryOnly: Boolean): LongArray
+    external fun searchMemoryLong(pid: Long, searchValue: Long, searchValue2: Long, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray
 
-    external fun searchMemoryLong(pid: Long, searchValue: Long, range: Int, physicalMemoryOnly: Boolean): LongArray
+    external fun searchMemoryFloat(pid: Long, searchValue: Float, searchValue2: Float, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray
 
-    external fun searchMemoryFloat(pid: Long, searchValue: Float, range: Int, physicalMemoryOnly: Boolean): LongArray
+    external fun searchMemoryDouble(pid: Long, searchValue: Double, searchValue2: Double, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray
 
-    external fun searchMemoryDouble(pid: Long, searchValue: Double, range: Int, physicalMemoryOnly: Boolean): LongArray
+    external fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int): LongArray
 
-    external fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int): LongArray
+    external fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long): LongArray
 
-    external fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long): LongArray
+    external fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float): LongArray
 
-    external fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float): LongArray
-
-    external fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double): LongArray
+    external fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double): LongArray
 
     companion object {
         init {

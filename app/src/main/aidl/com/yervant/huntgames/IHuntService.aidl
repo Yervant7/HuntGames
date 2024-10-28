@@ -7,37 +7,35 @@ interface IHuntService {
 
     boolean icheckRootJNI();
 
-    long igetpidtarget(String pkgname);
+    int[] ireadMultipleInt(in long[] address, long pid);
 
-    int ireadMemoryInt(long address, long pid);
+    long[] ireadMultipleLong(in long[] address, long pid);
 
-    long ireadMemoryLong(long address, long pid);
+    float[] ireadMultipleFloat(in long[] address, long pid);
 
-    float ireadMemoryFloat(long address, long pid);
+    double[] ireadMultipleDouble(in long[] address, long pid);
 
-    double ireadMemoryDouble(long address, long pid);
+    void iwriteMultipleInt(long pid, in long[] address, int value);
 
-    void iwriteMemoryInt(long pid, long address, int value);
+    void iwriteMultipleLong(long pid, in long[] address, long value);
 
-    void iwriteMemoryLong(long pid, long address, long value);
+    void iwriteMultipleFloat(long pid, in long[] address, float value);
 
-    void iwriteMemoryFloat(long pid, long address, float value);
+    void iwriteMultipleDouble(long pid, in long[] address, double value);
 
-    void iwriteMemoryDouble(long pid, long address, double value);
+    long[] isearchMemoryInt(long pid, int searchValue, int searchValue2, int range, int scantype, boolean physicalMemoryOnly);
 
-    long[] isearchMemoryInt(long pid, int searchValue, int range, boolean physicalMemoryOnly);
+    long[] isearchMemoryLong(long pid, long searchValue, long searchValue2, int range, int scantype, boolean physicalMemoryOnly);
 
-    long[] isearchMemoryLong(long pid, long searchValue, int range, boolean physicalMemoryOnly);
+    long[] isearchMemoryFloat(long pid, float searchValue, float searchValue2, int range, int scantype, boolean physicalMemoryOnly);
 
-    long[] isearchMemoryFloat(long pid, float searchValue, int range, boolean physicalMemoryOnly);
+    long[] isearchMemoryDouble(long pid, double searchValue, double searchValue2, int range, int scantype, boolean physicalMemoryOnly);
 
-    long[] isearchMemoryDouble(long pid, double searchValue, int range, boolean physicalMemoryOnly);
+    long[] ifilterMemoryInt(long pid, in long[] addressArray, int filterValue, int filterValue2);
 
-    long[] ifilterMemoryInt(long pid, in long[] addressArray, int filterValue);
+    long[] ifilterMemoryLong(long pid, in long[] addressArray, long filterValue, long filterValue2);
 
-    long[] ifilterMemoryLong(long pid, in long[] addressArray, long filterValue);
+    long[] ifilterMemoryFloat(long pid, in long[] addressArray, float filterValue, float filterValue2);
 
-    long[] ifilterMemoryFloat(long pid, in long[] addressArray, float filterValue);
-
-    long[] ifilterMemoryDouble(long pid, in long[] addressArray, double filterValue);
+    long[] ifilterMemoryDouble(long pid, in long[] addressArray, double filterValue, double filterValue2);
 }

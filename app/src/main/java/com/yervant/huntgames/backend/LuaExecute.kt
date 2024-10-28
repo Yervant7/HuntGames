@@ -1,8 +1,9 @@
 package com.yervant.huntgames.backend
 
+
+/*
 import android.util.Log
 import androidx.compose.runtime.Composable
-import com.yervant.huntgames.backend.Hunt.FreezeInfo
 import com.yervant.huntgames.ui.menu.DynamicScreen
 import com.yervant.huntgames.ui.menu.MatchInfo
 import com.yervant.huntgames.ui.menu.MenuManager
@@ -14,7 +15,7 @@ import org.luaj.vm2.lib.OneArgFunction
 import org.luaj.vm2.lib.TwoArgFunction
 import org.luaj.vm2.lib.jse.JsePlatform
 import java.io.File
-
+*/
 /*
 class LuaExecute {
 

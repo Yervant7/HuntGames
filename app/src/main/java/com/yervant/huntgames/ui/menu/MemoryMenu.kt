@@ -37,7 +37,6 @@ import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayChoicesDialog
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Memory.NumType
-import com.yervant.huntgames.backend.Memory.Operator
 import com.yervant.huntgames.backend.HuntSettings
 import com.yervant.huntgames.backend.Memory
 import kotlinx.coroutines.CoroutineScope
@@ -70,8 +69,6 @@ private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(mutableListOf())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
 
-private var address = ""
-
 data class MatchInfo(val address: Long, val prevValue: String, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
@@ -79,7 +76,6 @@ fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
         inputVal = scanInputVal.value,
         numType = NumType.values()[valueTypeSelectedOptionIdx.value],
-        scanType = Operator.values()[scanTypeSelectedOptionIdx.value],
         initialScanDone = initialScanDone.value,
     )
 }
@@ -120,18 +116,22 @@ suspend fun refreshvalue(overlayContext: OverlayContext) {
     val currentaddressList: List<MatchInfo> = matches
     if (currentaddressList.isNotEmpty()) {
         val match: MutableList<MatchInfo> = mutableListOf()
+        val addresses = LongArray(minOf(currentaddressList.size, 1000))
         var i = 0
-        while (i < currentaddressList.size) {
-            if (i < 1000) {
-                val value = mem.getvalue(currentaddressList[i].address, overlayContext)
-                match.add(MatchInfo(currentaddressList[i].address, value, currentaddressList[i].valuetype))
-            } else {
-                break
-            }
+        while (i < addresses.size) {
+            addresses[i] = currentaddressList[i].address
             i++
         }
-        matches.clear()
-        matches.addAll(match)
+        val values = mem.getvalues(addresses, overlayContext)
+        var j = 0
+        while (j < addresses.size) {
+            match.add(MatchInfo(addresses[j], values[j].toString(), currentaddressList[j].valuetype))
+            j++
+        }
+        synchronized(matches) {
+            matches.clear()
+            matches.addAll(match)
+        }
         UpdateMatches()
     }
 }
@@ -139,13 +139,8 @@ suspend fun refreshvalue(overlayContext: OverlayContext) {
 var valtypeselected: String = "int"
 var valuestype: List<String> = listOf("int", "long", "float", "double")
 
-fun isattached(): Boolean {
-    val pid = savepid()
-    if (pid == -1L) {
-        return false
-    } else {
-        return true
-    }
+fun getscantype(): Int {
+    return scanTypeSelectedOptionIdx.value
 }
 
 @Composable
@@ -156,10 +151,10 @@ fun _MemoryMenu(
 ) {
 
     if (!defaultValueInitialized) {
-        scanTypeSelectedOptionIdx.value = Operator.values().indexOf(HuntSettings.defaultScanType)
+        scanTypeSelectedOptionIdx.value = 0
         defaultValueInitialized = true
     }
-    val isAttached: Boolean = isattached()
+    val isAttached: Boolean = isattached().alert()
     valueTypeEnabled.value = isAttached && !initialScanDone.value
     scanTypeEnabled.value = isAttached
 
@@ -318,7 +313,7 @@ private fun MatchesTable(
             },
             drawCell = { rowIndex: Int, colIndex: Int ->
                 if (colIndex == 0) {
-                    Text(text = matches[rowIndex].address.toString())
+                    Text(text = matches[rowIndex].address.toString(16))
                 }
                 if (colIndex == 1) {
                     Text(text = matches[rowIndex].prevValue)
@@ -393,6 +388,41 @@ private fun MatchesSetting(
     }
 
     @Composable
+    fun ScanTypeDropDown(
+        selectedOptionIndex: MutableState<Int>,
+        enabled: MutableState<Boolean>,
+        overlayContext: OverlayContext,
+    ) {
+        val expanded = remember { mutableStateOf(false) }
+        // default to "exact scan (=)"
+        OverlayDropDown(
+            enabled = enabled,
+            label = "Scan Type",
+            expanded = expanded,
+            options = listOf("ACCURATE_VAL", "BETWEEN_VAL"),
+            selectedOptionIndex = selectedOptionIndex.value,
+            onShowOptions = fun(options: List<String>) {
+                OverlayChoicesDialog(overlayContext!!).show(
+                    title = "Value: ",
+                    choices = options,
+                    onConfirm = { index: Int, value: String ->
+                        selectedOptionIndex.value = index
+                        scanTypeSelectedOptionIdx.value = index
+                    },
+                    onClose = {
+                        // after choice dialog is closed
+                        // we should also set expanded to false
+                        // so drop down will look closed
+                        expanded.value = false
+
+                    },
+                    chosenIndex = selectedOptionIndex.value
+                )
+            }
+        )
+    }
+
+    @Composable
     fun ValueTypeDropDown(
         selectedOptionIndex: MutableState<Int>,
         enabled: MutableState<Boolean>,
@@ -440,11 +470,11 @@ private fun MatchesSetting(
                     verticalArrangement = Arrangement.spacedBy(7.dp)
                 ) {
                     ScanInputField(scanValue = scanInputVal)
-                    /*ScanTypeDropDown(
+                    ScanTypeDropDown(
                         scanTypeSelectedOptionIdx,
                         enabled = scanTypeEnabled,
                         overlayContext = overlayContext,
-                    )*/
+                    )
                     ValueTypeDropDown(
                         valueTypeSelectedOptionIdx,
                         // only allow to change type during initial scan

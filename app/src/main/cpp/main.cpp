@@ -27,7 +27,7 @@ T read_memory(CMemoryReaderWriter *pRwDriver, uint64_t hProcess, uint64_t pBuf) 
     BOOL read_res = pRwDriver->ReadProcessMemory(hProcess, pBuf, &readBuf, sizeof(T), &real_read, TRUE);
 
     if (read_res && real_read == sizeof(T)) {
-        LOGD("Success in reading");
+        LOGD("Success reading");
     }
     return readBuf;
 }
@@ -51,9 +51,16 @@ std::vector<uint64_t> filter_memory(
         CMemoryReaderWriter *pRwDriver,
         uint64_t hProcess,
         T value,
+        T value2,
         std::vector<uint64_t> addresses
 ) {
     std::vector<uint64_t> vSearchResult;
+    T check1 = 0;
+    T check2 = 0.0;
+    bool between = false;
+    if (value2 != check1 || value2 != check2) {
+        between = true;
+    }
 
     for(uint64_t addr : addresses) {
         T readBuf;
@@ -62,6 +69,8 @@ std::vector<uint64_t> filter_memory(
 
         if (read_res && real_read == sizeof(T) && readBuf == value) {
             vSearchResult.push_back(addr);
+        } else if (read_res && real_read == sizeof(T) && between && readBuf > value && readBuf < value2) {
+            vSearchResult.push_back(addr);
         }
     }
 
@@ -69,7 +78,7 @@ std::vector<uint64_t> filter_memory(
 }
 
 template <typename T>
-std::vector<ADDR_RESULT_INFO> normal_val_search(CMemoryReaderWriter *pRwDriver, uint64_t hProcess, size_t nWorkThreadCount, T searchValue, RangeType range, bool physicalMemoryOnly) {
+std::vector<ADDR_RESULT_INFO> normal_val_search(CMemoryReaderWriter *pRwDriver, uint64_t hProcess, size_t nWorkThreadCount, T searchValue, T searchValue2, RangeType range, SCAN_TYPE scantype, bool physicalMemoryOnly) {
 
     std::vector<ADDR_RESULT_INFO> vSearchResult;
     std::vector<DRIVER_REGION_INFO> vScanMemMaps;
@@ -98,9 +107,9 @@ std::vector<ADDR_RESULT_INFO> normal_val_search(CMemoryReaderWriter *pRwDriver, 
                 hProcess,
                 spvWaitScanMemSec,
                 searchValue,
-                0,
+                searchValue2,
                 0.001,
-                SCAN_TYPE::ACCURATE_VAL,
+                scantype,
                 nWorkThreadCount,
                 vSearchResult,
                 sizeof(T));
@@ -123,9 +132,9 @@ std::vector<ADDR_RESULT_INFO> normal_val_search(CMemoryReaderWriter *pRwDriver, 
                 hProcess,
                 vWaitSearchAddr, //待搜索的内存地址列表
                 searchValue, //搜索数值
-                0,
+                searchValue2,
                 0.001, //误差范围
-                SCAN_TYPE::ACCURATE_VAL, //搜索类型: 精确搜索
+                scantype, //搜索类型: 精确搜索
                 nWorkThreadCount, //搜索线程数
                 vSearchResult,
                 vErrorList); //搜索后的结果
@@ -148,36 +157,47 @@ size_t getThreads() {
 
 RangeType getrange(int rangenumber) {
     switch(rangenumber) {
-        case 1000:
+        case 1:
             return RangeType::RECOMMENDED;
-        case 2000:
+        case 2:
             return RangeType::B_BAD;
-        case 3000:
+        case 3:
             return RangeType::C_ALLOC;
-        case 4000:
+        case 4:
             return RangeType::C_BSS;
-        case 5000:
+        case 5:
             return RangeType::C_DATA;
-        case 6000:
+        case 6:
             return RangeType::C_HEAP;
-        case 7000:
+        case 7:
             return RangeType::JAVA_HEAP;
-        case 8000:
+        case 8:
             return RangeType::A_ANONMYOUS;
-        case 9000:
+        case 9:
             return RangeType::CODE_SYSTEM;
-        case 10000:
+        case 10:
             return RangeType::STACK;
-        case 11000:
+        case 11:
             return RangeType::ASHMEM;
-        case 12000:
+        case 12:
             return RangeType::X;
-        case 13000:
+        case 13:
             return RangeType::R0_0;
-        case 14000:
+        case 14:
             return RangeType::RW_0;
         default:
             return RangeType::RECOMMENDED;
+    }
+}
+
+SCAN_TYPE getscantype(int type) {
+    switch(type) {
+        case 0:
+            return SCAN_TYPE::ACCURATE_VAL;
+        case 1:
+            return SCAN_TYPE::BETWEEN_VAL;
+        default:
+            return SCAN_TYPE::ACCURATE_VAL;
     }
 }
 
@@ -187,7 +207,7 @@ JNIEXPORT jboolean JNICALL Java_com_yervant_huntgames_backend_HuntService_checkr
     return getuid() == 0;
 }
 
-JNIEXPORT jlong JNICALL Java_com_yervant_huntgames_backend_HuntService_getpidtarget(JNIEnv *env, jobject, jstring pkgname) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_getPidList(JNIEnv *env, jobject) {
     BOOL bOutListCompleted;
     BOOL b;
     std::vector<int> vPID;
@@ -197,255 +217,354 @@ JNIEXPORT jlong JNICALL Java_com_yervant_huntgames_backend_HuntService_getpidtar
 
     if (getuid() != 0) {
         LOGE("Root access missing");
-        return -1;
+        return nullptr;
     }
     b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
     if (!b) {
         LOGE("Failed to connect to driver");
-        return -1;
+        return nullptr;
     }
 
     b = rwDriver.GetProcessPidList(vPID, FALSE, bOutListCompleted);
     if (!b) {
         LOGE("Failed to get pid list");
-        return -1;
+        return nullptr;
     }
 
-    const char *pkgnameStr = env->GetStringUTFChars(pkgname, nullptr);
+    jlongArray resultArray = env->NewLongArray(vPID.size());
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        return nullptr;
+    }
 
-    long pidWithMaxRss = -1;
-    uint64_t maxRss = 0;
+    std::vector<jlong> pidArray(vPID.size());
+    for (size_t i = 0; i < vPID.size(); ++i) {
+        pidArray[i] = static_cast<jlong>(vPID[i]);
+    }
 
-    for (int pid : vPID) {
-        uint64_t hProcess = rwDriver.OpenProcess(pid);
+    env->SetLongArrayRegion(resultArray, 0, vPID.size(), pidArray.data());
+
+    return resultArray;
+}
+
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_getPidRss(JNIEnv *env, jobject, jlongArray pidlist) {
+    CMemoryReaderWriter rwDriver;
+    int err;
+    BOOL b;
+
+    if (getuid() != 0) {
+        LOGE("Root access missing");
+        return nullptr;
+    }
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    if (!b) {
+        LOGE("Failed to connect to driver");
+        return nullptr;
+    }
+
+    jsize length = env->GetArrayLength(pidlist);
+    std::vector<jlong> PidList(length);
+
+    jlong *elements = env->GetLongArrayElements(pidlist, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        PidList[i] = elements[i];
+    }
+    env->ReleaseLongArrayElements(pidlist, elements, 0);
+
+    std::vector<jlong> rss;
+
+    for (jlong pid : PidList) {
+        uint64_t hProcess = rwDriver.OpenProcess(static_cast<long>(pid));
         if (!hProcess) { continue; }
 
         uint64_t outRss = 0;
-        rwDriver.GetProcessRSS(hProcess, outRss);
-
-        char cmdline[100] = { 0 };
-        rwDriver.GetProcessCmdline(hProcess, cmdline, sizeof(cmdline));
-
-        if (strstr(cmdline, pkgnameStr) != nullptr) {
-            if (outRss > maxRss) {
-                maxRss = outRss;
-                pidWithMaxRss = pid;
-            }
+        if (!rwDriver.GetProcessRSS(hProcess, outRss)) {
+            LOGE("Failed to get RSS for PID %ld", pid);
+            rwDriver.CloseHandle(hProcess);
+            continue;
         }
 
+        rss.push_back(static_cast<jlong>(outRss));
         rwDriver.CloseHandle(hProcess);
     }
 
-    env->ReleaseStringUTFChars(pkgname, pkgnameStr);
+    jlongArray resultArray = env->NewLongArray(rss.size());
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        return nullptr;
+    }
 
-    return pidWithMaxRss;
+    env->SetLongArrayRegion(resultArray, 0, rss.size(), rss.data());
+    return resultArray;
 }
 
-JNIEXPORT jint JNICALL Java_com_yervant_huntgames_backend_HuntService_readMemoryInt(JNIEnv *env, jobject, jlong address, jlong pid) {
+JNIEXPORT jobjectArray JNICALL Java_com_yervant_huntgames_backend_HuntService_getPidCmdLine(JNIEnv *env, jobject, jlongArray pidlist) {
+    CMemoryReaderWriter rwDriver;
+    int err;
+    BOOL b;
+
+    if (getuid() != 0) {
+        LOGE("Root access missing");
+        return nullptr;
+    }
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    if (!b) {
+        LOGE("Failed to connect to driver");
+        return nullptr;
+    }
+
+    jsize length = env->GetArrayLength(pidlist);
+    std::vector<jlong> PidList(length);
+
+    jlong *elements = env->GetLongArrayElements(pidlist, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        PidList[i] = elements[i];
+    }
+    env->ReleaseLongArrayElements(pidlist, elements, 0);
+
+    jobjectArray cmdLineArray = env->NewObjectArray(length, env->FindClass("java/lang/String"), nullptr);
+    if (cmdLineArray == nullptr) {
+        LOGE("Failed to create jobjectArray for cmdLine");
+        return nullptr;
+    }
+
+    for (jsize i = 0; i < length; i++) {
+        uint64_t hProcess = rwDriver.OpenProcess(static_cast<long>(PidList[i]));
+        if (!hProcess) {
+            env->SetObjectArrayElement(cmdLineArray, i, nullptr);
+            continue;
+        }
+
+        char cmdline[100] = { 0 };
+        if (!rwDriver.GetProcessCmdline(hProcess, cmdline, sizeof(cmdline))) {
+            LOGE("Failed to get cmdline for PID %ld", PidList[i]);
+            rwDriver.CloseHandle(hProcess);
+            env->SetObjectArrayElement(cmdLineArray, i, nullptr);
+            continue;
+        }
+
+        jstring jcmdline = env->NewStringUTF(cmdline);
+        if (jcmdline == nullptr) {
+            LOGE("Failed to create jstring for cmdline");
+            rwDriver.CloseHandle(hProcess);
+            env->SetObjectArrayElement(cmdLineArray, i, nullptr);
+            continue;
+        }
+
+        env->SetObjectArrayElement(cmdLineArray, i, jcmdline);
+        env->DeleteLocalRef(jcmdline);
+        rwDriver.CloseHandle(hProcess);
+    }
+
+    return cmdLineArray;
+}
+
+
+JNIEXPORT jintArray JNICALL Java_com_yervant_huntgames_backend_HuntService_readMultipleInt(JNIEnv *env, jobject, jlongArray addressesArray, jlong pid) {
+    BOOL b;
     CMemoryReaderWriter rwDriver;
     int err;
 
     if (getuid() != 0) {
         LOGE("Root access missing");
-        return -1;
+        return nullptr;
     }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
     if (!b) {
         LOGE("Failed to connect to driver");
-        return -1;
+        return nullptr;
     }
     auto target_pid = (pid_t)pid;
     uint64_t hProcess = rwDriver.OpenProcess(target_pid);
     if (!hProcess) {
         LOGE("Failed to open process");
-        return -1;
+        return nullptr;
     }
 
     LOGD("Opened process handle: %" PRIu64, hProcess);
 
-    auto addr = static_cast<uint64_t>(address);
+    jsize length = env->GetArrayLength(addressesArray);
+    std::vector<uint64_t> addresses(length);
 
-    auto res = read_memory<int>(&rwDriver, hProcess, addr);
+    jlong *elements = env->GetLongArrayElements(addressesArray, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addresses[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addressesArray, elements, 0);
+
+    jintArray resultArray = env->NewIntArray(length);
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        rwDriver.CloseHandle(hProcess);
+        return nullptr;
+    }
+
+    std::vector<jint> valuesArray(length);
+    for (size_t i = 0; i < length; ++i) {
+        auto res = read_memory<int>(&rwDriver, hProcess, addresses[i]);
+        valuesArray[i] = static_cast<jint>(res);
+    }
+
+    env->SetIntArrayRegion(resultArray, 0, valuesArray.size(), valuesArray.data());
 
     rwDriver.CloseHandle(hProcess);
-    return res;
+    return resultArray;
 }
 
-JNIEXPORT jlong JNICALL Java_com_yervant_huntgames_backend_HuntService_readMemoryLong(JNIEnv *env, jobject, jlong address, jlong pid) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_readMultipleLong(JNIEnv *env, jobject, jlongArray addressesArray, jlong pid) {
+    BOOL b;
     CMemoryReaderWriter rwDriver;
     int err;
 
     if (getuid() != 0) {
         LOGE("Root access missing");
-        return -1;
+        return nullptr;
     }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
     if (!b) {
         LOGE("Failed to connect to driver");
-        return -1;
+        return nullptr;
     }
     auto target_pid = (pid_t)pid;
     uint64_t hProcess = rwDriver.OpenProcess(target_pid);
     if (!hProcess) {
         LOGE("Failed to open process");
-        return -1;
+        return nullptr;
     }
 
     LOGD("Opened process handle: %" PRIu64, hProcess);
 
-    auto addr = static_cast<uint64_t>(address);
+    jsize length = env->GetArrayLength(addressesArray);
+    std::vector<uint64_t> addresses(length);
 
-    auto res = read_memory<long>(&rwDriver, hProcess, addr);
+    jlong *elements = env->GetLongArrayElements(addressesArray, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addresses[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addressesArray, elements, 0);
+
+    jlongArray resultArray = env->NewLongArray(length);
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        rwDriver.CloseHandle(hProcess);
+        return nullptr;
+    }
+
+    std::vector<jlong> valuesArray(length);
+    for (size_t i = 0; i < length; ++i) {
+        auto res = read_memory<long>(&rwDriver, hProcess, addresses[i]);
+        valuesArray[i] = static_cast<jlong>(res);
+    }
+
+    env->SetLongArrayRegion(resultArray, 0, valuesArray.size(), valuesArray.data());
 
     rwDriver.CloseHandle(hProcess);
-    return res;
+    return resultArray;
 }
 
-JNIEXPORT jfloat JNICALL Java_com_yervant_huntgames_backend_HuntService_readMemoryFloat(JNIEnv *env, jobject, jlong address, jlong pid) {
+JNIEXPORT jfloatArray JNICALL Java_com_yervant_huntgames_backend_HuntService_readMultipleFloat(JNIEnv *env, jobject, jlongArray addressesArray, jlong pid) {
+    BOOL b;
     CMemoryReaderWriter rwDriver;
     int err;
 
     if (getuid() != 0) {
         LOGE("Root access missing");
-        return -1;
+        return nullptr;
     }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
     if (!b) {
         LOGE("Failed to connect to driver");
-        return -1;
+        return nullptr;
     }
     auto target_pid = (pid_t)pid;
     uint64_t hProcess = rwDriver.OpenProcess(target_pid);
     if (!hProcess) {
         LOGE("Failed to open process");
-        return -1;
+        return nullptr;
     }
 
     LOGD("Opened process handle: %" PRIu64, hProcess);
 
-    auto addr = static_cast<uint64_t>(address);
+    jsize length = env->GetArrayLength(addressesArray);
+    std::vector<uint64_t> addresses(length);
 
-    auto res = read_memory<float>(&rwDriver, hProcess, addr);
+    jlong *elements = env->GetLongArrayElements(addressesArray, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addresses[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addressesArray, elements, 0);
+
+    jfloatArray resultArray = env->NewFloatArray(length);
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        rwDriver.CloseHandle(hProcess);
+        return nullptr;
+    }
+
+    std::vector<jfloat> valuesArray(length);
+    for (size_t i = 0; i < length; ++i) {
+        auto res = read_memory<float>(&rwDriver, hProcess, addresses[i]);
+        valuesArray[i] = static_cast<jfloat>(res);
+    }
+
+    env->SetFloatArrayRegion(resultArray, 0, valuesArray.size(), valuesArray.data());
 
     rwDriver.CloseHandle(hProcess);
-    return res;
+    return resultArray;
 }
 
-JNIEXPORT jdouble JNICALL Java_com_yervant_huntgames_backend_HuntService_readMemoryDouble(JNIEnv *env, jobject, jlong address, jlong pid) {
+JNIEXPORT jdoubleArray JNICALL Java_com_yervant_huntgames_backend_HuntService_readMultipleDouble(JNIEnv *env, jobject, jlongArray addressesArray, jlong pid) {
+    BOOL b;
     CMemoryReaderWriter rwDriver;
     int err;
 
     if (getuid() != 0) {
         LOGE("Root access missing");
-        return -1;
+        return nullptr;
     }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
     if (!b) {
         LOGE("Failed to connect to driver");
-        return -1;
+        return nullptr;
     }
     auto target_pid = (pid_t)pid;
     uint64_t hProcess = rwDriver.OpenProcess(target_pid);
     if (!hProcess) {
         LOGE("Failed to open process");
-        return -1;
+        return nullptr;
     }
 
     LOGD("Opened process handle: %" PRIu64, hProcess);
 
-    auto addr = static_cast<uint64_t>(address);
+    jsize length = env->GetArrayLength(addressesArray);
+    std::vector<uint64_t> addresses(length);
 
-    auto res = read_memory<double>(&rwDriver, hProcess, addr);
+    jlong *elements = env->GetLongArrayElements(addressesArray, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addresses[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addressesArray, elements, 0);
+
+    jdoubleArray resultArray = env->NewDoubleArray(length);
+    if (resultArray == nullptr) {
+        LOGE("Failed to create jlongArray");
+        rwDriver.CloseHandle(hProcess);
+        return nullptr;
+    }
+
+    std::vector<jdouble> valuesArray(length);
+    for (size_t i = 0; i < length; ++i) {
+        auto res = read_memory<double>(&rwDriver, hProcess, addresses[i]);
+        valuesArray[i] = static_cast<jdouble>(res);
+    }
+
+    env->SetDoubleArrayRegion(resultArray, 0, valuesArray.size(), valuesArray.data());
 
     rwDriver.CloseHandle(hProcess);
-    return res;
+    return resultArray;
 }
 
-JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMemoryInt(JNIEnv *env, jobject, jlong pid, jlong address, jint value) {
-    CMemoryReaderWriter rwDriver;
-    int err;
-
-    if (getuid() != 0) {
-        LOGE("Root access missing");
-        return;
-    }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
-    if (!b) {
-        LOGE("Failed to connect to driver");
-        return;
-    }
-    auto target_pid = (pid_t)pid;
-    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
-    if (!hProcess) {
-        LOGE("Failed to open process");
-        return;
-    }
-
-    LOGD("Opened process handle: %" PRIu64, hProcess);
-
-    auto addr = static_cast<uint64_t>(address);
-
-    write_memory<int>(&rwDriver, hProcess, addr, value);
-    rwDriver.CloseHandle(hProcess);
-}
-
-JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMemoryLong(JNIEnv *env, jobject, jlong pid, jlong address, jlong value) {
-    CMemoryReaderWriter rwDriver;
-    int err;
-
-    if (getuid() != 0) {
-        LOGE("Root access missing");
-        return;
-    }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
-    if (!b) {
-        LOGE("Failed to connect to driver");
-        return;
-    }
-    auto target_pid = (pid_t)pid;
-    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
-    if (!hProcess) {
-        LOGE("Failed to open process");
-        return;
-    }
-
-    LOGD("Opened process handle: %" PRIu64, hProcess);
-
-    auto addr = static_cast<uint64_t>(address);
-
-    write_memory<long>(&rwDriver, hProcess, addr, value);
-    rwDriver.CloseHandle(hProcess);
-}
-
-JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMemoryFloat(JNIEnv *env, jobject, jlong pid, jlong address, jfloat value) {
-    CMemoryReaderWriter rwDriver;
-    int err;
-
-    if (getuid() != 0) {
-        LOGE("Root access missing");
-        return;
-    }
-    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
-    if (!b) {
-        LOGE("Failed to connect to driver");
-        return;
-    }
-    auto target_pid = (pid_t)pid;
-    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
-    if (!hProcess) {
-        LOGE("Failed to open process");
-        return;
-    }
-
-    LOGD("Opened process handle: %" PRIu64, hProcess);
-
-    auto addr = static_cast<uint64_t>(address);
-
-    write_memory<float>(&rwDriver, hProcess, addr, value);
-    rwDriver.CloseHandle(hProcess);
-}
-
-JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMemoryDouble(JNIEnv *env, jobject, jlong pid, jlong address, jdouble value) {
+JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMultipleInt(JNIEnv *env, jobject, jlong pid, jlongArray addresses, jint value) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -467,13 +586,133 @@ JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMemor
 
     LOGD("Opened process handle: %" PRIu64, hProcess);
 
-    auto addr = static_cast<uint64_t>(address);
+    jsize length = env->GetArrayLength(addresses);
+    std::vector<uint64_t> addrs(length);
 
-    write_memory<double>(&rwDriver, hProcess, addr, value);
+    jlong *elements = env->GetLongArrayElements(addresses, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addrs[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addresses, elements, 0);
+
+    for (uint64_t addr : addrs) {
+        write_memory<int>(&rwDriver, hProcess, addr, value);
+    }
     rwDriver.CloseHandle(hProcess);
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryInt(JNIEnv *env, jobject, jlong pid, jint searchValue, jint range, jboolean physicalMemoryOnly) {
+JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMultipleLong(JNIEnv *env, jobject, jlong pid, jlongArray addresses, jlong value) {
+    CMemoryReaderWriter rwDriver;
+    int err;
+
+    if (getuid() != 0) {
+        LOGE("Root access missing");
+        return;
+    }
+    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    if (!b) {
+        LOGE("Failed to connect to driver");
+        return;
+    }
+    auto target_pid = (pid_t)pid;
+    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
+    if (!hProcess) {
+        LOGE("Failed to open process");
+        return;
+    }
+
+    LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    jsize length = env->GetArrayLength(addresses);
+    std::vector<uint64_t> addrs(length);
+
+    jlong *elements = env->GetLongArrayElements(addresses, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addrs[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addresses, elements, 0);
+
+    for (uint64_t addr : addrs) {
+        write_memory<long>(&rwDriver, hProcess, addr, value);
+    }
+    rwDriver.CloseHandle(hProcess);
+}
+
+JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMultipleFloat(JNIEnv *env, jobject, jlong pid, jlongArray addresses, jfloat value) {
+    CMemoryReaderWriter rwDriver;
+    int err;
+
+    if (getuid() != 0) {
+        LOGE("Root access missing");
+        return;
+    }
+    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    if (!b) {
+        LOGE("Failed to connect to driver");
+        return;
+    }
+    auto target_pid = (pid_t)pid;
+    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
+    if (!hProcess) {
+        LOGE("Failed to open process");
+        return;
+    }
+
+    LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    jsize length = env->GetArrayLength(addresses);
+    std::vector<uint64_t> addrs(length);
+
+    jlong *elements = env->GetLongArrayElements(addresses, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addrs[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addresses, elements, 0);
+
+    for (uint64_t addr : addrs) {
+        write_memory<float>(&rwDriver, hProcess, addr, value);
+    }
+    rwDriver.CloseHandle(hProcess);
+}
+
+JNIEXPORT void JNICALL Java_com_yervant_huntgames_backend_HuntService_writeMultipleDouble(JNIEnv *env, jobject, jlong pid, jlongArray addresses, jdouble value) {
+    CMemoryReaderWriter rwDriver;
+    int err;
+
+    if (getuid() != 0) {
+        LOGE("Root access missing");
+        return;
+    }
+    BOOL b = rwDriver.ConnectDriver(RWPROCMEM_FILE_NODE, FALSE, err);
+    if (!b) {
+        LOGE("Failed to connect to driver");
+        return;
+    }
+    auto target_pid = (pid_t)pid;
+    uint64_t hProcess = rwDriver.OpenProcess(target_pid);
+    if (!hProcess) {
+        LOGE("Failed to open process");
+        return;
+    }
+
+    LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    jsize length = env->GetArrayLength(addresses);
+    std::vector<uint64_t> addrs(length);
+
+    jlong *elements = env->GetLongArrayElements(addresses, nullptr);
+    for (jsize i = 0; i < length; ++i) {
+        addrs[i] = static_cast<uint64_t>(elements[i]);
+    }
+    env->ReleaseLongArrayElements(addresses, elements, 0);
+
+    for (uint64_t addr : addrs) {
+        write_memory<double>(&rwDriver, hProcess, addr, value);
+    }
+    rwDriver.CloseHandle(hProcess);
+}
+
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryInt(JNIEnv *env, jobject, jlong pid, jint searchValue, jint searchValue2, jint range, jint scantype, jboolean physicalMemoryOnly) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -492,12 +731,13 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
         LOGE("Failed to open process");
         return nullptr;
     }
+
+    LOGD("Opened process handle: %" PRIu64, hProcess);
 
     RangeType rangeType = getrange(static_cast<int>(range));
-
-    LOGD("Opened process handle: %" PRIu64, hProcess);
     size_t threads = getThreads();
-    std::vector<ADDR_RESULT_INFO> results = normal_val_search<int>(&rwDriver, hProcess, threads, static_cast<int>(searchValue), rangeType, physicalMemoryOnly);
+    SCAN_TYPE scanType = getscantype(scantype);
+    std::vector<ADDR_RESULT_INFO> results = normal_val_search<int>(&rwDriver, hProcess, threads, static_cast<int>(searchValue), static_cast<int>(searchValue2), rangeType, scanType, physicalMemoryOnly);
 
     jlongArray resultArray = env->NewLongArray(results.size());
     if (resultArray == nullptr) {
@@ -517,7 +757,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryLong(JNIEnv *env, jobject, jlong pid, jlong searchValue, jint range, jboolean physicalMemoryOnly) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryLong(JNIEnv *env, jobject, jlong pid, jlong searchValue, jlong searchValue2, jint range, jint scantype, jboolean physicalMemoryOnly) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -537,11 +777,12 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
         return nullptr;
     }
 
-    RangeType rangeType = getrange(static_cast<int>(range));
-
     LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    RangeType rangeType = getrange(static_cast<int>(range));
+    SCAN_TYPE scanType = getscantype(scantype);
     size_t threads = getThreads();
-    std::vector<ADDR_RESULT_INFO> results = normal_val_search<long>(&rwDriver, hProcess, threads, static_cast<long>(searchValue), rangeType, physicalMemoryOnly);
+    std::vector<ADDR_RESULT_INFO> results = normal_val_search<long>(&rwDriver, hProcess, threads, static_cast<long>(searchValue), static_cast<long>(searchValue2), rangeType, scanType, physicalMemoryOnly);
 
     jlongArray resultArray = env->NewLongArray(results.size());
     if (resultArray == nullptr) {
@@ -561,7 +802,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryFloat(JNIEnv *env, jobject, jlong pid, jfloat searchValue, jint range, jboolean physicalMemoryOnly) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryFloat(JNIEnv *env, jobject, jlong pid, jfloat searchValue, jfloat searchValue2, jint range, jint scantype, jboolean physicalMemoryOnly) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -581,11 +822,12 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
         return nullptr;
     }
 
-    RangeType rangeType = getrange(static_cast<int>(range));
-
     LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    RangeType rangeType = getrange(static_cast<int>(range));
     size_t threads = getThreads();
-    std::vector<ADDR_RESULT_INFO> results = normal_val_search<float>(&rwDriver, hProcess, threads, static_cast<float>(searchValue), rangeType, physicalMemoryOnly);
+    SCAN_TYPE scanType = getscantype(scantype);
+    std::vector<ADDR_RESULT_INFO> results = normal_val_search<float>(&rwDriver, hProcess, threads, static_cast<float>(searchValue), static_cast<float>(searchValue2), rangeType, scanType, physicalMemoryOnly);
 
     jlongArray resultArray = env->NewLongArray(results.size());
     if (resultArray == nullptr) {
@@ -605,7 +847,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryDouble(JNIEnv *env, jobject, jlong pid, jdouble searchValue, jint range, jboolean physicalMemoryOnly) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_searchMemoryDouble(JNIEnv *env, jobject, jlong pid, jdouble searchValue, jdouble searchValue2, jint range, jint scantype, jboolean physicalMemoryOnly) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -625,11 +867,12 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
         return nullptr;
     }
 
-    RangeType rangeType = getrange(static_cast<int>(range));
-
     LOGD("Opened process handle: %" PRIu64, hProcess);
+
+    RangeType rangeType = getrange(static_cast<int>(range));
     size_t threads = getThreads();
-    std::vector<ADDR_RESULT_INFO> results = normal_val_search<double>(&rwDriver, hProcess, threads, static_cast<double>(searchValue), rangeType, physicalMemoryOnly);
+    SCAN_TYPE scanType = getscantype(scantype);
+    std::vector<ADDR_RESULT_INFO> results = normal_val_search<double>(&rwDriver, hProcess, threads, static_cast<double>(searchValue), static_cast<double>(searchValue2), rangeType, scanType, physicalMemoryOnly);
 
     jlongArray resultArray = env->NewLongArray(results.size());
     if (resultArray == nullptr) {
@@ -650,7 +893,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_sear
 }
 
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryInt(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jint filterValue) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryInt(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jint filterValue, jint filterValue2) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -681,7 +924,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     }
     env->ReleaseLongArrayElements(addressArray, elements, 0);
 
-    std::vector<uint64_t> filteredAddresses = filter_memory<int>(&rwDriver, hProcess, static_cast<int>(filterValue), addresses);
+    std::vector<uint64_t> filteredAddresses = filter_memory<int>(&rwDriver, hProcess, static_cast<int>(filterValue), static_cast<int>(filterValue2), addresses);
 
     jlongArray resultArray = env->NewLongArray(filteredAddresses.size());
     if (resultArray == nullptr) {
@@ -701,7 +944,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryLong(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jlong filterValue) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryLong(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jlong filterValue, jlong filterValue2) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -732,7 +975,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     }
     env->ReleaseLongArrayElements(addressArray, elements, 0);
 
-    std::vector<uint64_t> filteredAddresses = filter_memory<long>(&rwDriver, hProcess, static_cast<long>(filterValue), addresses);
+    std::vector<uint64_t> filteredAddresses = filter_memory<long>(&rwDriver, hProcess, static_cast<long>(filterValue), static_cast<long>(filterValue2), addresses);
 
     jlongArray resultArray = env->NewLongArray(filteredAddresses.size());
     if (resultArray == nullptr) {
@@ -752,7 +995,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryFloat(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jfloat filterValue) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryFloat(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jfloat filterValue, jfloat filterValue2) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -783,7 +1026,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     }
     env->ReleaseLongArrayElements(addressArray, elements, 0);
 
-    std::vector<uint64_t> filteredAddresses = filter_memory<float>(&rwDriver, hProcess, static_cast<float>(filterValue), addresses);
+    std::vector<uint64_t> filteredAddresses = filter_memory<float>(&rwDriver, hProcess, static_cast<float>(filterValue), static_cast<float>(filterValue2), addresses);
 
     jlongArray resultArray = env->NewLongArray(filteredAddresses.size());
     if (resultArray == nullptr) {
@@ -803,7 +1046,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     return resultArray;
 }
 
-JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryDouble(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jdouble filterValue) {
+JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filterMemoryDouble(JNIEnv *env, jobject, jlong pid, jlongArray addressArray, jdouble filterValue, jdouble filterValue2) {
     CMemoryReaderWriter rwDriver;
     int err;
 
@@ -834,7 +1077,7 @@ JNIEXPORT jlongArray JNICALL Java_com_yervant_huntgames_backend_HuntService_filt
     }
     env->ReleaseLongArrayElements(addressArray, elements, 0);
 
-    std::vector<uint64_t> filteredAddresses = filter_memory<double>(&rwDriver, hProcess, static_cast<double>(filterValue), addresses);
+    std::vector<uint64_t> filteredAddresses = filter_memory<double>(&rwDriver, hProcess, static_cast<double>(filterValue), static_cast<double>(filterValue2), addresses);
 
     jlongArray resultArray = env->NewLongArray(filteredAddresses.size());
     if (resultArray == nullptr) {

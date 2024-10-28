@@ -19,8 +19,8 @@ import com.kuhakupixel.libuberalles.overlay.service.OverlayInterface
 import com.kuhakupixel.libuberalles.ui.overlay.service.OverlayViewController
 import com.yervant.huntgames.R
 import com.yervant.huntgames.ui.menu.AddressTableMenu
-import com.yervant.huntgames.ui.menu.AppMenu
 import com.yervant.huntgames.ui.menu.MemoryMenu
+import com.yervant.huntgames.ui.menu.ProcessMenu
 import com.yervant.huntgames.ui.menu.SettingsMenu
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +34,7 @@ fun HackingScreen(overlayContext: OverlayContext) {
             route = "Process",
             title = "Process",
             iconId = R.drawable.ic_process,
-            content = { AppMenu(overlayContext = overlayContext) },
+            content = { ProcessMenu(overlayContext = overlayContext) },
         ),
 
         BottomBarMenu(
