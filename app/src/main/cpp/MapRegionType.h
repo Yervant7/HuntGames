@@ -188,7 +188,7 @@ static inline int is_S(const DRIVER_REGION_INFO * rInfo) {
 
 static inline int is_A(const DRIVER_REGION_INFO * rInfo) {
 	if (is_r0_0(rInfo)) {
-		if (rInfo->name[0] == '\x00') {
+		if (rInfo->name[0] == '\0') {
 			return 1;
 		}
 	}

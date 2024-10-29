@@ -72,6 +72,70 @@ class HuntingMemory {
         }
     }
 
+    suspend fun searchMultiInt(pid: Long, targetValues: IntArray, distance: Long, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwProcMem()
+        return suspendCancellableCoroutine { continuation ->
+            rwmem.searchMultiInt(pid, targetValues, distance, overlayContext) { onResult ->
+                if (onResult.isNotEmpty()) {
+                    Toast.makeText(
+                        overlayContext.service,
+                        "Success in Search for int",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                continuation.resume(onResult)
+            }
+        }
+    }
+
+    suspend fun searchMultiLong(pid: Long, targetValues: LongArray, distance: Long, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwProcMem()
+        return suspendCancellableCoroutine { continuation ->
+            rwmem.searchMultiLong(pid, targetValues, distance, overlayContext) { onResult ->
+                if (onResult.isNotEmpty()) {
+                    Toast.makeText(
+                        overlayContext.service,
+                        "Success in Search for int",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                continuation.resume(onResult)
+            }
+        }
+    }
+
+    suspend fun searchMultiFloat(pid: Long, targetValues: FloatArray, distance: Long, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwProcMem()
+        return suspendCancellableCoroutine { continuation ->
+            rwmem.searchMultiFloat(pid, targetValues, distance, overlayContext) { onResult ->
+                if (onResult.isNotEmpty()) {
+                    Toast.makeText(
+                        overlayContext.service,
+                        "Success in Search for int",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                continuation.resume(onResult)
+            }
+        }
+    }
+
+    suspend fun searchMultiDouble(pid: Long, targetValues: DoubleArray, distance: Long, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwProcMem()
+        return suspendCancellableCoroutine { continuation ->
+            rwmem.searchMultiDouble(pid, targetValues, distance, overlayContext) { onResult ->
+                if (onResult.isNotEmpty()) {
+                    Toast.makeText(
+                        overlayContext.service,
+                        "Success in Search for int",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                continuation.resume(onResult)
+            }
+        }
+    }
+
     suspend fun readMultiInt(pid: Long, addr: LongArray, overlayContext: OverlayContext): IntArray {
         val rwmem = rwProcMem()
         return suspendCancellableCoroutine { continuation ->
@@ -128,7 +192,7 @@ class HuntingMemory {
         rwmem.writeMultipleDouble(pid, addr, value, overlayContext)
     }
 
-    suspend fun filterMemInt(pid: Long, expectedValue: Int, expectedValue2: Int, overlayContext: OverlayContext): LongArray {
+    suspend fun filterMemInt(pid: Long, expectedValue: Int, expectedValue2: Int, scantype: Int, overlayContext: OverlayContext): LongArray {
         val rwmem = rwProcMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
@@ -137,7 +201,7 @@ class HuntingMemory {
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryInt(pid, targetlist.toLongArray(), expectedValue, expectedValue2, overlayContext) { onResult ->
+            rwmem.filterMemoryInt(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
                 }
@@ -146,7 +210,7 @@ class HuntingMemory {
         }
     }
 
-    suspend fun filterMemLong(pid: Long, expectedValue: Long, expectedValue2: Long, overlayContext: OverlayContext): LongArray {
+    suspend fun filterMemLong(pid: Long, expectedValue: Long, expectedValue2: Long, scantype: Int, overlayContext: OverlayContext): LongArray {
         val rwmem = rwProcMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
@@ -155,7 +219,7 @@ class HuntingMemory {
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryLong(pid, targetlist.toLongArray(), expectedValue, expectedValue2, overlayContext) { onResult ->
+            rwmem.filterMemoryLong(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
                 }
@@ -164,7 +228,7 @@ class HuntingMemory {
         }
     }
 
-    suspend fun filterMemFloat(pid: Long, expectedValue: Float, expectedValue2: Float, overlayContext: OverlayContext): LongArray {
+    suspend fun filterMemFloat(pid: Long, expectedValue: Float, expectedValue2: Float, scantype: Int, overlayContext: OverlayContext): LongArray {
         val rwmem = rwProcMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
@@ -173,7 +237,7 @@ class HuntingMemory {
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryFloat(pid, targetlist.toLongArray(), expectedValue, expectedValue2, overlayContext) { onResult ->
+            rwmem.filterMemoryFloat(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
                 }
@@ -182,7 +246,7 @@ class HuntingMemory {
         }
     }
 
-    suspend fun filterMemDouble(pid: Long, expectedValue: Double, expectedValue2: Double, overlayContext: OverlayContext): LongArray {
+    suspend fun filterMemDouble(pid: Long, expectedValue: Double, expectedValue2: Double, scantype: Int, overlayContext: OverlayContext): LongArray {
         val rwmem = rwProcMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
@@ -191,7 +255,7 @@ class HuntingMemory {
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryDouble(pid, targetlist.toLongArray(), expectedValue, expectedValue2, overlayContext) { onResult ->
+            rwmem.filterMemoryDouble(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
                 }

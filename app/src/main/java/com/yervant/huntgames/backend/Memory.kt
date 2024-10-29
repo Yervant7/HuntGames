@@ -147,46 +147,192 @@ class Memory {
                 listOf(numValStr, "0")
             }
 
-            Log.d("Memory", "value type: $valtypeselected")
-            if (matches.isEmpty()) {
-                val addresses = when (valtypeselected) {
-                    "int" -> hunt.searchInt(pid, value[0].toInt(), value[1].toInt(), scantype, overlayContext)
-                    "long" -> hunt.searchLong(pid, value[0].toLong(), value[1].toLong(), scantype, overlayContext)
-                    "float" -> hunt.searchFloat(pid, value[0].toFloat(), value[1].toFloat(), scantype, overlayContext)
-                    "double" -> hunt.searchDouble(pid, value[0].toDouble(), value[1].toDouble(), scantype, overlayContext)
-                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+            if (numValStr.contains(";") && numValStr.contains(":")) {
+                val splited = numValStr.split(":")
+                val distance = splited[1].toLong()
+                val values = splited[0].split(";")
+                val valuesArrayInt = IntArray(values.size)
+                val valuesArrayLong = LongArray(values.size)
+                val valuesArrayFloat = FloatArray(values.size)
+                val valuesArrayDouble = DoubleArray(values.size)
+                if (valtypeselected == "int") {
+                    var i = 0
+                    while (i < values.size) {
+                        valuesArrayInt[i] = values[i].toIntOrNull()!!
+                        i++
+                    }
+                } else if (valtypeselected == "long") {
+                    var i = 0
+                    while (i < values.size) {
+                        valuesArrayLong[i] = values[i].toLongOrNull()!!
+                        i++
+                    }
+                } else if (valtypeselected == "float") {
+                    var i = 0
+                    while (i < values.size) {
+                        valuesArrayFloat[i] = values[i].toFloatOrNull()!!
+                        i++
+                    }
+                } else if (valtypeselected == "double") {
+                    var i = 0
+                    while (i < values.size) {
+                        valuesArrayDouble[i] = values[i].toDoubleOrNull()!!
+                        i++
+                    }
                 }
-                val valuesArray = when (valtypeselected) {
-                    "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                    "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                    "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                    "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                }
-                var i = 0
-                while (i < addresses.size && i < valuesArray.size) {
-                    results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
-                    i++
+
+                if (matches.isEmpty()) {
+                    val addresses = when (valtypeselected) {
+                        "int" -> hunt.searchMultiInt(pid, valuesArrayInt, distance, overlayContext)
+                        "long" -> hunt.searchMultiLong(pid, valuesArrayLong, distance, overlayContext)
+                        "float" -> hunt.searchMultiFloat(pid, valuesArrayFloat, distance, overlayContext)
+                        "double" -> hunt.searchMultiDouble(pid, valuesArrayDouble, distance, overlayContext)
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    val valuesArray = when (valtypeselected) {
+                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    var i = 0
+                    while (i < addresses.size && i < valuesArray.size) {
+                        results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
+                        i++
+                    }
+                } else {
+                    val addresses = LongArray(matches.size)
+                    var a = 0
+                    while (a < addresses.size) {
+                        addresses[a] = matches[a].address
+                        a++
+                    }
+                    val valuesArray = when (valtypeselected) {
+                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+
+                    var i = 0
+                    while (i < addresses.size && i < valuesArray.size) {
+                        if (matches[i].prevValue == valuesArray[i].toString()) {
+                            results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
+                        }
+                        i++
+                    }
                 }
             } else {
-                val addresses = when (valtypeselected) {
-                    "int" -> hunt.filterMemInt(pid, value[0].toInt(), value[1].toInt(), overlayContext)
-                    "long" -> hunt.filterMemLong(pid, value[0].toLong(), value[1].toLong(), overlayContext)
-                    "float" -> hunt.filterMemFloat(pid, value[0].toFloat(), value[1].toFloat(), overlayContext)
-                    "double" -> hunt.filterMemDouble(pid, value[0].toDouble(), value[1].toDouble(), overlayContext)
-                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                }
-                val valuesArray = when (valtypeselected) {
-                    "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                    "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                    "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                    "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                    else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                }
-                var i = 0
-                while (i < addresses.size && i < valuesArray.size) {
-                    results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
-                    i++
+                if (matches.isEmpty()) {
+                    val addresses = when (valtypeselected) {
+                        "int" -> hunt.searchInt(
+                            pid,
+                            value[0].toInt(),
+                            value[1].toInt(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "long" -> hunt.searchLong(
+                            pid,
+                            value[0].toLong(),
+                            value[1].toLong(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "float" -> hunt.searchFloat(
+                            pid,
+                            value[0].toFloat(),
+                            value[1].toFloat(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "double" -> hunt.searchDouble(
+                            pid,
+                            value[0].toDouble(),
+                            value[1].toDouble(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    val valuesArray = when (valtypeselected) {
+                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    var i = 0
+                    while (i < addresses.size && i < valuesArray.size) {
+                        results.add(
+                            MatchInfo(
+                                addresses[i],
+                                valuesArray[i].toString(),
+                                valtypeselected
+                            )
+                        )
+                        i++
+                    }
+                } else {
+                    val addresses = when (valtypeselected) {
+                        "int" -> hunt.filterMemInt(
+                            pid,
+                            value[0].toInt(),
+                            value[1].toInt(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "long" -> hunt.filterMemLong(
+                            pid,
+                            value[0].toLong(),
+                            value[1].toLong(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "float" -> hunt.filterMemFloat(
+                            pid,
+                            value[0].toFloat(),
+                            value[1].toFloat(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        "double" -> hunt.filterMemDouble(
+                            pid,
+                            value[0].toDouble(),
+                            value[1].toDouble(),
+                            scantype,
+                            overlayContext
+                        )
+
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    val valuesArray = when (valtypeselected) {
+                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
+                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
+                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
+                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
+                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
+                    }
+                    var i = 0
+                    while (i < addresses.size && i < valuesArray.size) {
+                        results.add(
+                            MatchInfo(
+                                addresses[i],
+                                valuesArray[i].toString(),
+                                valtypeselected
+                            )
+                        )
+                        i++
+                    }
                 }
             }
             matches.clear()

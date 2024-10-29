@@ -11,8 +11,8 @@ android {
         applicationId = "com.yervant.huntgames"
         minSdk = 29
         targetSdk = 34
-        versionCode = 37
-        versionName = "0.5.2"
+        versionCode = 39
+        versionName = "0.5.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

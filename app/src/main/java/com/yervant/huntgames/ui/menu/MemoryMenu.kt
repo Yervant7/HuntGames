@@ -399,7 +399,7 @@ private fun MatchesSetting(
             enabled = enabled,
             label = "Scan Type",
             expanded = expanded,
-            options = listOf("ACCURATE_VAL", "BETWEEN_VAL"),
+            options = listOf("ACCURATE_VAL", "LARGER_THAN_VAL", "LESS_THAN_VAL", "BETWEEN_VAL", "ADD_UNKNOW_VAL", "ADD_ACCURATE_VAL", "SUB_UNKNOW_VAL", "SUB_ACCURATE_VAL", "CHANGED_VAL", "UNCHANGED_VAL"),
             selectedOptionIndex = selectedOptionIndex.value,
             onShowOptions = fun(options: List<String>) {
                 OverlayChoicesDialog(overlayContext!!).show(

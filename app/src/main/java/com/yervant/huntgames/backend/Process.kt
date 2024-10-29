@@ -9,22 +9,19 @@ class Process {
     private fun getPackageNameByPid(pid: String): String {
         val commandOutput = Shell.cmd("cat /proc/$pid/cmdline").exec().out.firstOrNull() ?: return ""
         val packageName = commandOutput.split('\u0000')[0]
-        return if ("/" in packageName) "" else packageName
+        return packageName
     }
 
     fun getRunningProcesses(): List<ProcessInfo> {
         val processes = mutableListOf<ProcessInfo>()
-        val commandOutput = Shell.cmd("ps -e -o pid,rss,uid").exec().out.drop(1)
+        val commandOutput = Shell.cmd("ps -e -o pid,rss").exec().out.drop(1)
 
         commandOutput.mapNotNull { line ->
             val tokens = line.split(Regex("\\s+"))
-            if (tokens.size >= 3) {
-                val (pid, memory, uid) = tokens.take(3)
-                val uidInt = uid.toIntOrNull()
-                if (uidInt != null && uidInt > 1000) {
-                    val packageName = getPackageNameByPid(pid)
-                    if (packageName.isNotEmpty()) ProcessInfo(pid, packageName, memory) else null
-                } else null
+            if (tokens.size >= 2) {
+                val (pid, memory) = tokens.take(2)
+                val packageName = getPackageNameByPid(pid)
+                if (packageName.isNotEmpty()) ProcessInfo(pid, packageName, memory) else null
             } else null
         }.toCollection(processes)
 

@@ -69,9 +69,9 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
                 Button(
                     onClick = {
                         if (selectedRegion.intValue == 0) {
-                            regionsselected = 1
+                            regionsselected = 0
                         } else {
-                            regionsselected = selectedRegion.intValue + 1
+                            regionsselected = selectedRegion.intValue
                         }
                     },
                     modifier = Modifier.padding(16.dp)

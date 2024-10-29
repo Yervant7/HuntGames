@@ -84,20 +84,36 @@ class HuntService : RootService() {
             return searchMemoryDouble(pid, searchValue, searchValue2, range, scantype, physicalMemoryOnly)
         }
 
-        override fun ifilterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int): LongArray {
-            return filterMemoryInt(pid, addressArray, filterValue, filterValue2)
+        override fun isearchMultiInt(pid: Long, searchValues: IntArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray {
+            return searchMultipleInt(pid, searchValues, range, distance, physicalMemoryOnly)
         }
 
-        override fun ifilterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long): LongArray {
-            return filterMemoryLong(pid, addressArray, filterValue, filterValue2)
+        override fun isearchMultiLong(pid: Long, searchValues: LongArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray {
+            return searchMultipleLong(pid, searchValues, range, distance, physicalMemoryOnly)
         }
 
-        override fun ifilterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float): LongArray {
-            return filterMemoryFloat(pid, addressArray, filterValue, filterValue2)
+        override fun isearchMultiFloat(pid: Long, searchValues: FloatArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray {
+            return searchMultipleFloat(pid, searchValues, range, distance, physicalMemoryOnly)
         }
 
-        override fun ifilterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double): LongArray {
-            return filterMemoryDouble(pid, addressArray, filterValue, filterValue2)
+        override fun isearchMultiDouble(pid: Long, searchValues: DoubleArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray {
+            return searchMultipleDouble(pid, searchValues, range, distance, physicalMemoryOnly)
+        }
+
+        override fun ifilterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int, scantype: Int): LongArray {
+            return filterMemoryInt(pid, addressArray, filterValue, filterValue2, scantype)
+        }
+
+        override fun ifilterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long, scantype: Int): LongArray {
+            return filterMemoryLong(pid, addressArray, filterValue, filterValue2, scantype)
+        }
+
+        override fun ifilterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float, scantype: Int): LongArray {
+            return filterMemoryFloat(pid, addressArray, filterValue, filterValue2, scantype)
+        }
+
+        override fun ifilterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double, scantype: Int): LongArray {
+            return filterMemoryDouble(pid, addressArray, filterValue, filterValue2, scantype)
         }
     }
 
@@ -127,13 +143,21 @@ class HuntService : RootService() {
 
     external fun searchMemoryDouble(pid: Long, searchValue: Double, searchValue2: Double, range: Int, scantype: Int, physicalMemoryOnly: Boolean): LongArray
 
-    external fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int): LongArray
+    external fun searchMultipleInt(pid: Long, searchValues: IntArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray
 
-    external fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long): LongArray
+    external fun searchMultipleLong(pid: Long, searchValues: LongArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray
 
-    external fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float): LongArray
+    external fun searchMultipleFloat(pid: Long, searchValues: FloatArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray
 
-    external fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double): LongArray
+    external fun searchMultipleDouble(pid: Long, searchValues: DoubleArray, range: Int, distance: Long, physicalMemoryOnly: Boolean): LongArray
+
+    external fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int, scantype: Int): LongArray
+
+    external fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long, scantype: Int): LongArray
+
+    external fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float, scantype: Int): LongArray
+
+    external fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double, scantype: Int): LongArray
 
     companion object {
         init {

@@ -465,8 +465,127 @@ namespace MemorySearchKit {
 			return MEM_SEARCH_SUCCESS;
 		}
 
+        template<typename T>
+        static MEM_SEARCH_STATUS SearchSequence(
+                IMemReaderWriterProxy* pReadWriteProxy,
+                uint64_t hProcess,
+                std::shared_ptr<MemSearchSafeWorkSecWrapper> spvWaitScanMemSecList,
+                std::vector<T> valueSequence,
+                float errorRange,
+                size_t nThreadCount,
+                uint64_t maxDistanceBetweenValues,
+                std::vector<ADDR_RESULT_INFO>& vResultList,
+                size_t nScanAlignBytesCount = sizeof(T),
+                std::atomic<bool>* pForceStopSignal = nullptr) {
 
-		/*
+            assert(pReadWriteProxy);
+            if (!pReadWriteProxy) {
+                return MEM_SEARCH_FAILED_INVALID_PARAM;
+            }
+
+            std::shared_ptr<SimpleDriverMemDataProvider> spMemDataProvider
+                    = std::make_shared<SimpleDriverMemDataProvider>(pReadWriteProxy, hProcess);
+            if (!spMemDataProvider) {
+                return MEM_SEARCH_FAILED_ALLOC_MEM;
+            }
+            spvWaitScanMemSecList->set_mem_data_provider(spMemDataProvider.get());
+
+            MemSearchSafeMap<uint64_t, ADDR_RESULT_INFO> sortResultMap;
+
+            MultiThreadExecOnCpu(nThreadCount, [pReadWriteProxy, nThreadCount, hProcess,
+                    spvWaitScanMemSecList, valueSequence, errorRange,
+                    maxDistanceBetweenValues, &sortResultMap, nScanAlignBytesCount](size_t thread_id, std::atomic<bool>* pForceStopSignal)->void {
+
+                std::vector<ADDR_RESULT_INFO> vThreadOutput;
+                bool isFloatVal = std::is_floating_point<T>::value;
+
+                uint64_t curMemBlockStartAddr = 0;
+                uint64_t curMemBlockSize = 0;
+                std::shared_ptr<std::atomic<uint64_t>> spOutCurWorkOffset;
+                std::shared_ptr<unsigned char> spOutMemDataBlock;
+
+                while (!pForceStopSignal || !*pForceStopSignal) {
+                    if (!spOutCurWorkOffset) {
+                        if (!spvWaitScanMemSecList->get_need_work_mem_sec(curMemBlockStartAddr, curMemBlockSize, spOutCurWorkOffset, spOutMemDataBlock)) {
+                            break;
+                        }
+                    }
+
+                    size_t splitSize = curMemBlockSize / nThreadCount;
+                    auto yu = splitSize % max(sizeof(T), nScanAlignBytesCount);
+                    splitSize -= yu;
+
+                    uint64_t curWorkOffset = spOutCurWorkOffset->fetch_add(splitSize);
+                    if (curWorkOffset >= curMemBlockSize) {
+                        spOutCurWorkOffset = nullptr;
+                        spOutMemDataBlock = nullptr;
+                        continue;
+                    }
+
+                    size_t nRealReadSize = std::min(curMemBlockSize - curWorkOffset, splitSize);
+                    if (nRealReadSize == 0) continue;
+
+                    char* pReadBuf = (char*)((char*)spOutMemDataBlock.get() + curWorkOffset);
+                    std::vector<size_t> vFindAddr;
+
+                    for (size_t offset = 0; offset <= nRealReadSize - (valueSequence.size() * sizeof(T)); offset += nScanAlignBytesCount) {
+                        bool match = true;
+                        size_t addrOffset = offset;
+
+                        std::vector<uint64_t> foundAddresses;
+
+                        for (size_t i = 0; i < valueSequence.size(); ++i) {
+                            T valueInMemory;
+                            memcpy(&valueInMemory, pReadBuf + addrOffset, sizeof(T));
+
+                            if (isFloatVal) {
+                                if (valueInMemory < valueSequence[i] - errorRange || valueInMemory > valueSequence[i] + errorRange) {
+                                    match = false;
+                                    break;
+                                }
+                            } else if (valueInMemory != valueSequence[i]) {
+                                match = false;
+                                break;
+                            }
+
+                            foundAddresses.push_back(curMemBlockStartAddr + curWorkOffset + addrOffset);
+
+                            if (i < valueSequence.size() - 1) {
+                                uint64_t nextAddress = addrOffset + sizeof(T);
+                                if (nextAddress > maxDistanceBetweenValues) {
+                                    match = false;
+                                    break;
+                                }
+                                addrOffset += sizeof(T);
+                            }
+                        }
+
+                        if (match) {
+                            for (uint64_t foundAddr : foundAddresses) {
+                                ADDR_RESULT_INFO aInfo;
+                                aInfo.addr = foundAddr;
+                                aInfo.size = sizeof(T);
+                                std::shared_ptr<unsigned char> sp(new unsigned char[aInfo.size], std::default_delete<unsigned char[]>());
+                                memcpy(sp.get(), pReadBuf + offset, aInfo.size);
+                                aInfo.spSaveData = sp;
+
+                                vThreadOutput.push_back(aInfo);
+                            }
+                        }
+                    }
+                }
+
+                for (ADDR_RESULT_INFO& newAddr : vThreadOutput) {
+                    sortResultMap.insert(newAddr.addr, newAddr);
+                }
+            }, pForceStopSignal);
+
+            sortResultMap.to_vector(vResultList);
+            return MEM_SEARCH_SUCCESS;
+        }
+
+
+        /*
 		内存批量搜索值在两值之间的内存地址
 		pReadWriteProxy：读取进程内存数据的接口
 		hProcess：被搜索的进程句柄

@@ -31,11 +31,19 @@ interface IHuntService {
 
     long[] isearchMemoryDouble(long pid, double searchValue, double searchValue2, int range, int scantype, boolean physicalMemoryOnly);
 
-    long[] ifilterMemoryInt(long pid, in long[] addressArray, int filterValue, int filterValue2);
+    long[] isearchMultiInt(long pid, in int[] searchValues, int range, long distance, boolean physicalMemoryOnly);
 
-    long[] ifilterMemoryLong(long pid, in long[] addressArray, long filterValue, long filterValue2);
+    long[] isearchMultiLong(long pid, in long[] searchValues, int range, long distance, boolean physicalMemoryOnly);
 
-    long[] ifilterMemoryFloat(long pid, in long[] addressArray, float filterValue, float filterValue2);
+    long[] isearchMultiFloat(long pid, in float[] searchValues, int range, long distance, boolean physicalMemoryOnly);
 
-    long[] ifilterMemoryDouble(long pid, in long[] addressArray, double filterValue, double filterValue2);
+    long[] isearchMultiDouble(long pid, in double[] searchValues, int range, long distance, boolean physicalMemoryOnly);
+
+    long[] ifilterMemoryInt(long pid, in long[] addressArray, int filterValue, int filterValue2, int scantype);
+
+    long[] ifilterMemoryLong(long pid, in long[] addressArray, long filterValue, long filterValue2, int scantype);
+
+    long[] ifilterMemoryFloat(long pid, in long[] addressArray, float filterValue, float filterValue2, int scantype);
+
+    long[] ifilterMemoryDouble(long pid, in long[] addressArray, double filterValue, double filterValue2, int scantype);
 }

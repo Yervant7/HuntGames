@@ -51,12 +51,8 @@ fun AttachToProcess(
     onAttachSuccess: () -> Unit,
     onAttachFailure: (msg: String) -> Unit,
 ) {
-    if (pid > 1000) {
-        success = true
-        onAttachSuccess()
-    } else {
-        onAttachFailure("Unexpected Error, cannot attach to $pid")
-    }
+    success = true
+    onAttachSuccess()
 }
 
 @Composable
@@ -189,7 +185,7 @@ fun ProcessTable(
         },
         drawCell = { rowIndex: Int, colIndex: Int ->
             when (colIndex) {
-                0 -> Text(text = processList[rowIndex].pid.toString())
+                0 -> Text(text = processList[rowIndex].pid)
                 1 -> Text(text = processList[rowIndex].packageName)
                 2 -> {
                     val memoryInMB = processList[rowIndex].memory.toLong() / 1024

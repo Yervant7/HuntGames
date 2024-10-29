@@ -6,7 +6,6 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
-import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ipc.RootService
 import com.yervant.huntgames.IHuntService
 import com.yervant.huntgames.ui.menu.regionsselected
@@ -110,7 +109,7 @@ class rwProcMem {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1
+                        range = 0
                     }
                     val res: LongArray = it.isearchMemoryInt(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
@@ -131,7 +130,7 @@ class rwProcMem {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1
+                        range = 0
                     }
                     val res: LongArray = it.isearchMemoryLong(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
@@ -152,7 +151,7 @@ class rwProcMem {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1
+                        range = 0
                     }
                     val res: LongArray = it.isearchMemoryFloat(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
@@ -173,7 +172,7 @@ class rwProcMem {
                 try {
                     var range = regionsselected
                     if (range == 0) {
-                        range = 1
+                        range = 0
                     }
                     val res: LongArray = it.isearchMemoryDouble(pid, searchValue, searchValue2, range, scantype, false)
                     onResult(res)
@@ -188,11 +187,95 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun searchMultiInt(pid: Long, searchValues: IntArray, distance: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryInt(pid, addressArray, filterValue, filterValue2)
+                    var range = regionsselected
+                    if (range == 0) {
+                        range = 0
+                    }
+                    val res: LongArray = it.isearchMultiInt(pid, searchValues, range, distance, false)
+                    onResult(res)
+                } catch (e: Exception) {
+                    Log.e("rwProcMem", "Error searching int", e)
+                    onResult(longArrayOf())
+                }
+            } ?: run {
+                Log.e("rwProcMem", "HuntService is not connected")
+                onResult(longArrayOf())
+            }
+        }
+    }
+
+    fun searchMultiLong(pid: Long, searchValues: LongArray, distance: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    var range = regionsselected
+                    if (range == 0) {
+                        range = 0
+                    }
+                    val res: LongArray = it.isearchMultiLong(pid, searchValues, range, distance, false)
+                    onResult(res)
+                } catch (e: Exception) {
+                    Log.e("rwProcMem", "Error searching int", e)
+                    onResult(longArrayOf())
+                }
+            } ?: run {
+                Log.e("rwProcMem", "HuntService is not connected")
+                onResult(longArrayOf())
+            }
+        }
+    }
+
+    fun searchMultiFloat(pid: Long, searchValues: FloatArray, distance: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    var range = regionsselected
+                    if (range == 0) {
+                        range = 0
+                    }
+                    val res: LongArray = it.isearchMultiFloat(pid, searchValues, range, distance, false)
+                    onResult(res)
+                } catch (e: Exception) {
+                    Log.e("rwProcMem", "Error searching int", e)
+                    onResult(longArrayOf())
+                }
+            } ?: run {
+                Log.e("rwProcMem", "HuntService is not connected")
+                onResult(longArrayOf())
+            }
+        }
+    }
+
+    fun searchMultiDouble(pid: Long, searchValues: DoubleArray, distance: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    var range = regionsselected
+                    if (range == 0) {
+                        range = 0
+                    }
+                    val res: LongArray = it.isearchMultiDouble(pid, searchValues, range, distance, false)
+                    onResult(res)
+                } catch (e: Exception) {
+                    Log.e("rwProcMem", "Error searching int", e)
+                    onResult(longArrayOf())
+                }
+            } ?: run {
+                Log.e("rwProcMem", "HuntService is not connected")
+                onResult(longArrayOf())
+            }
+        }
+    }
+
+    fun filterMemoryInt(pid: Long, addressArray: LongArray, filterValue: Int, filterValue2: Int, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    val res: LongArray = it.ifilterMemoryInt(pid, addressArray, filterValue, filterValue2, scantype)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -205,11 +288,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryLong(pid: Long, addressArray: LongArray, filterValue: Long, filterValue2: Long, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryLong(pid, addressArray, filterValue, filterValue2)
+                    val res: LongArray = it.ifilterMemoryLong(pid, addressArray, filterValue, filterValue2, scantype)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -222,11 +305,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryFloat(pid: Long, addressArray: LongArray, filterValue: Float, filterValue2: Float, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryFloat(pid, addressArray, filterValue, filterValue2)
+                    val res: LongArray = it.ifilterMemoryFloat(pid, addressArray, filterValue, filterValue2, scantype)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)
@@ -239,11 +322,11 @@ class rwProcMem {
         }
     }
 
-    fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
+    fun filterMemoryDouble(pid: Long, addressArray: LongArray, filterValue: Double, filterValue2: Double, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
         ensureHuntServiceConnected(overlayContext) {
             huntService?.let {
                 try {
-                    val res: LongArray = it.ifilterMemoryDouble(pid, addressArray, filterValue, filterValue2)
+                    val res: LongArray = it.ifilterMemoryDouble(pid, addressArray, filterValue, filterValue2, scantype)
                     onResult(res)
                 } catch (e: Exception) {
                     Log.e("rwProcMem", "Error in filter memory", e)

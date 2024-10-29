@@ -77,6 +77,21 @@ namespace MemorySearchKit {
 			vResultList, vErrorList, pForceStopSignal);
 	}
 
+    template<typename T> static MEM_SEARCH_STATUS SearchSequence(
+            IMemReaderWriterProxy* pReadWriteProxy, uint64_t hProcess,
+            std::shared_ptr<MemSearchSafeWorkSecWrapper> spvWaitScanMemSecList,
+            std::vector<T> valuesequence, float errorRange, size_t nThreadCount,
+            uint64_t maxDistanceBetweenValues,
+            std::vector<ADDR_RESULT_INFO> & vResultList,
+            size_t nScanAlignBytesCount = sizeof(T),
+            std::atomic<bool> * pForceStopSignal = nullptr) {
+
+
+        return Core::SearchSequence(
+                pReadWriteProxy, hProcess, spvWaitScanMemSecList, valuesequence, errorRange,
+                nThreadCount, maxDistanceBetweenValues, vResultList, nScanAlignBytesCount, pForceStopSignal);
+    }
+
 	/*
 	内存批量搜索值在两值之间的内存地址
 	pReadWriteProxy：读取进程内存数据的接口
