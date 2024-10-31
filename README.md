@@ -11,14 +11,14 @@ HuntGames is an open-source project aimed at providing tools for game hunting an
 
 - ARM64 device
 - Root access
-- Compiled kernel module (refer to the [rwProcMem repository](https://github.com/Yervant7/rwMem))
+- Compiled kernel module (refer to the [rwMem repository](https://github.com/Yervant7/rwMem))
 - Unlocked bootloader
 
 ## Installation
 
 1. Download apk in the realeases section
 
-2. Compile the necessary kernel module from the [rwProcMem repository](https://github.com/Yervant7/rwMem):
+2. Compile the necessary kernel module from the [rwMem repository](https://github.com/Yervant7/rwMem):
     Instructions in the repository see too [Kernel_Action repository](https://github.com/Yervant7/Kernel_Action)
  
 3. Load the compiled module:
