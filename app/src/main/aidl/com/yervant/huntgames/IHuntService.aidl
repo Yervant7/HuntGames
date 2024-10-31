@@ -3,47 +3,15 @@ package com.yervant.huntgames;
 
 interface IHuntService {
 
-    String executeRootCommand(String command);
+    String[] ireadmultiple(in long[] addresses, long pid, String datatype);
 
-    boolean icheckRootJNI();
+    void iwritemultiple(in long[] addresses, long pid, String datatype, String value);
 
-    int[] ireadMultipleInt(in long[] address, long pid);
+    long[] isearchvalues(long pid, String datatype, String value1, String value2, int scantype, String regions);
 
-    long[] ireadMultipleLong(in long[] address, long pid);
+    long[] ifiltervalues(long pid, String datatype, String value1, String value2, int scantype, in long[] addressArray);
 
-    float[] ireadMultipleFloat(in long[] address, long pid);
+    long[] isearchgroupvalues(long pid, String datatype, in String[] values, long proxi, String regions);
 
-    double[] ireadMultipleDouble(in long[] address, long pid);
-
-    void iwriteMultipleInt(long pid, in long[] address, int value);
-
-    void iwriteMultipleLong(long pid, in long[] address, long value);
-
-    void iwriteMultipleFloat(long pid, in long[] address, float value);
-
-    void iwriteMultipleDouble(long pid, in long[] address, double value);
-
-    long[] isearchMemoryInt(long pid, int searchValue, int searchValue2, int range, int scantype, boolean physicalMemoryOnly);
-
-    long[] isearchMemoryLong(long pid, long searchValue, long searchValue2, int range, int scantype, boolean physicalMemoryOnly);
-
-    long[] isearchMemoryFloat(long pid, float searchValue, float searchValue2, int range, int scantype, boolean physicalMemoryOnly);
-
-    long[] isearchMemoryDouble(long pid, double searchValue, double searchValue2, int range, int scantype, boolean physicalMemoryOnly);
-
-    long[] isearchMultiInt(long pid, in int[] searchValues, int range, long distance, boolean physicalMemoryOnly);
-
-    long[] isearchMultiLong(long pid, in long[] searchValues, int range, long distance, boolean physicalMemoryOnly);
-
-    long[] isearchMultiFloat(long pid, in float[] searchValues, int range, long distance, boolean physicalMemoryOnly);
-
-    long[] isearchMultiDouble(long pid, in double[] searchValues, int range, long distance, boolean physicalMemoryOnly);
-
-    long[] ifilterMemoryInt(long pid, in long[] addressArray, int filterValue, int filterValue2, int scantype);
-
-    long[] ifilterMemoryLong(long pid, in long[] addressArray, long filterValue, long filterValue2, int scantype);
-
-    long[] ifilterMemoryFloat(long pid, in long[] addressArray, float filterValue, float filterValue2, int scantype);
-
-    long[] ifilterMemoryDouble(long pid, in long[] addressArray, double filterValue, double filterValue2, int scantype);
+    long[] ifiltergroupvalues(long pid, String datatype, in String[] values, in long[] addressArray);
 }

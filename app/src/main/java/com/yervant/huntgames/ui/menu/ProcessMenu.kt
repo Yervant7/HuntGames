@@ -59,13 +59,22 @@ fun AttachToProcess(
 fun ProcessMenu(overlayContext: OverlayContext?) {
     val currentProcList = remember { mutableStateListOf<ProcessInfo>() }
     val searchQuery = remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+
+    fun refreshProcList() {
+        coroutineScope.launch(Dispatchers.IO) {
+            val newProcesses = Process().getRunningProcesses()
+            withContext(Dispatchers.Main) {
+                currentProcList.clear()
+                currentProcList.addAll(newProcesses)
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
-        launch {
-            while (isActive) {
-                refreshProcList(currentProcList)
-                delay(60.seconds)
-            }
+        while (isActive) {
+            refreshProcList()
+            delay(60.seconds)
         }
     }
 
@@ -111,7 +120,7 @@ fun ProcessMenu(overlayContext: OverlayContext?) {
                 },
             )
         },
-        onRefreshClicked = { refreshProcList(currentProcList) },
+        onRefreshClicked = { refreshProcList() },
     )
 }
 
@@ -140,27 +149,6 @@ private fun _ProcessMenu(
                 onAttach = onAttach,
                 buttonContainer = { content -> Row(content = { content() }) }
             )
-        }
-    }
-}
-
-
-fun refreshProcList(processList: MutableList<Process.ProcessInfo>) {
-    CoroutineScope(Dispatchers.IO).launch {
-        val process = Process()
-        val newProcesses = process.getRunningProcesses()
-
-        withContext(Dispatchers.Main) {
-            val existingPids = processList.map { it.pid }.toSet()
-            val newPids = newProcesses.map { it.pid }.toSet()
-
-            // Remove processes that are no longer running
-            processList.removeAll { it.pid !in newPids }
-
-            // Add new processes that are not already in the list
-            newProcesses.filter { it.pid !in existingPids }.forEach {
-                processList.add(it)
-            }
         }
     }
 }

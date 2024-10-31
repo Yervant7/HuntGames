@@ -3,19 +3,20 @@ package com.yervant.huntgames.backend
 import android.widget.Toast
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.backend.Memory.Companion.matches
+import com.yervant.huntgames.ui.menu.MatchInfo
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 class HuntingMemory {
 
-    suspend fun searchInt(pid: Long, targetValue: Int, targetValue2: Int, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
+    suspend fun searchmem(pid: Long, datatype: String, targetValue: String, targetValue2: String, scantype: Int, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwMem()
         return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMemoryInt(pid, targetValue, targetValue2, scantype, overlayContext) { onResult ->
+            rwmem.searchvalues(pid, datatype, targetValue, targetValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(
                         overlayContext.service,
-                        "Success in Search for int",
+                        "Success in Search",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -24,14 +25,14 @@ class HuntingMemory {
         }
     }
 
-    suspend fun searchLong(pid: Long, targetValue: Long, targetValue2: Long, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
+    suspend fun searchmemgroup(pid: Long, datatype: String, targetValues: Array<String>, proxi: Long, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwMem()
         return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMemoryLong(pid, targetValue, targetValue2, scantype, overlayContext) { onResult ->
+            rwmem.searchgroupvalues(pid, datatype, targetValues, proxi, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
                     Toast.makeText(
                         overlayContext.service,
-                        "Success in Search for int",
+                        "Success in Search",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -40,224 +41,50 @@ class HuntingMemory {
         }
     }
 
-    suspend fun searchFloat(pid: Long, targetValue: Float, targetValue2: Float, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
+    suspend fun readmem(pid: Long, addr: LongArray, datatype: String, overlayContext: OverlayContext): Array<String> {
+        val rwmem = rwMem()
         return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMemoryFloat(pid, targetValue, targetValue2, scantype, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            rwmem.readmultiple(addr, pid, datatype, overlayContext) { onResult ->
                 continuation.resume(onResult)
             }
         }
     }
 
-    suspend fun searchDouble(pid: Long, targetValue: Double, targetValue2: Double, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMemoryDouble(pid, targetValue, targetValue2, scantype,overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
+    fun writemem(pid: Long, addr: LongArray, datatype: String, value: String, overlayContext: OverlayContext) {
+        val rwmem = rwMem()
+        rwmem.writemultiple(pid, addr, datatype, value, overlayContext)
     }
 
-    suspend fun searchMultiInt(pid: Long, targetValues: IntArray, distance: Long, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMultiInt(pid, targetValues, distance, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun searchMultiLong(pid: Long, targetValues: LongArray, distance: Long, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMultiLong(pid, targetValues, distance, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun searchMultiFloat(pid: Long, targetValues: FloatArray, distance: Long, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMultiFloat(pid, targetValues, distance, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun searchMultiDouble(pid: Long, targetValues: DoubleArray, distance: Long, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.searchMultiDouble(pid, targetValues, distance, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(
-                        overlayContext.service,
-                        "Success in Search for int",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun readMultiInt(pid: Long, addr: LongArray, overlayContext: OverlayContext): IntArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.readMultipleInt(addr, pid, overlayContext) { onResult ->
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun readMultiLong(pid: Long, addr: LongArray, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.readMultipleLong(addr, pid, overlayContext) { onResult ->
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun readMultiFloat(pid: Long, addr: LongArray, overlayContext: OverlayContext): FloatArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.readMultipleFloat(addr, pid, overlayContext) { onResult ->
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun readMultiDouble(pid: Long, addr: LongArray, overlayContext: OverlayContext): DoubleArray {
-        val rwmem = rwProcMem()
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.readMultipleDouble(addr, pid, overlayContext) { onResult ->
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    fun writeMemInt(pid: Long, addr: LongArray, value: Int, overlayContext: OverlayContext) {
-        val rwmem = rwProcMem()
-        rwmem.writeMultipleInt(pid, addr, value, overlayContext)
-    }
-
-    fun writeMemLong(pid: Long, addr: LongArray, value: Long, overlayContext: OverlayContext) {
-        val rwmem = rwProcMem()
-        rwmem.writeMultipleLong(pid, addr, value, overlayContext)
-    }
-
-    fun writeMemFloat(pid: Long, addr: LongArray, value: Float, overlayContext: OverlayContext) {
-        val rwmem = rwProcMem()
-        rwmem.writeMultipleFloat(pid, addr, value, overlayContext)
-    }
-
-    fun writeMemDouble(pid: Long, addr: LongArray, value: Double, overlayContext: OverlayContext) {
-        val rwmem = rwProcMem()
-        rwmem.writeMultipleDouble(pid, addr, value, overlayContext)
-    }
-
-    suspend fun filterMemInt(pid: Long, expectedValue: Int, expectedValue2: Int, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
+    suspend fun filtermem(pid: Long, datatype: String, expectedValue: String, expectedValue2: String, scantype: Int, tMatches: List<MatchInfo>, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
-        while (i < matches.size) {
-            targetlist.add(matches[i].address)
+        while (i < tMatches.size) {
+            targetlist.add(tMatches[i].address)
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryInt(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
+            rwmem.filtervalues(pid, datatype, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
-                    Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(overlayContext.service, "Success in Filter", Toast.LENGTH_SHORT).show()
                 }
                 continuation.resume(onResult)
             }
         }
     }
 
-    suspend fun filterMemLong(pid: Long, expectedValue: Long, expectedValue2: Long, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
+    suspend fun filtermemgroup(pid: Long, datatype: String, expectedValues: Array<String>, tMatches: List<MatchInfo>, overlayContext: OverlayContext): LongArray {
+        val rwmem = rwMem()
         val targetlist: MutableList<Long> = mutableListOf()
         var i = 0
-        while (i < matches.size) {
-            targetlist.add(matches[i].address)
+        while (i < tMatches.size) {
+            targetlist.add(tMatches[i].address)
             i++
         }
         return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryLong(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
+            rwmem.filtergroupvalues(pid, datatype, targetlist.toLongArray(), expectedValues, overlayContext) { onResult ->
                 if (onResult.isNotEmpty()) {
-                    Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun filterMemFloat(pid: Long, expectedValue: Float, expectedValue2: Float, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        val targetlist: MutableList<Long> = mutableListOf()
-        var i = 0
-        while (i < matches.size) {
-            targetlist.add(matches[i].address)
-            i++
-        }
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryFloat(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
-                }
-                continuation.resume(onResult)
-            }
-        }
-    }
-
-    suspend fun filterMemDouble(pid: Long, expectedValue: Double, expectedValue2: Double, scantype: Int, overlayContext: OverlayContext): LongArray {
-        val rwmem = rwProcMem()
-        val targetlist: MutableList<Long> = mutableListOf()
-        var i = 0
-        while (i < matches.size) {
-            targetlist.add(matches[i].address)
-            i++
-        }
-        return suspendCancellableCoroutine { continuation ->
-            rwmem.filterMemoryDouble(pid, targetlist.toLongArray(), expectedValue, expectedValue2, scantype, overlayContext) { onResult ->
-                if (onResult.isNotEmpty()) {
-                    Toast.makeText(overlayContext.service, "Success in Filter int", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(overlayContext.service, "Success in Filter", Toast.LENGTH_SHORT).show()
                 }
                 continuation.resume(onResult)
             }

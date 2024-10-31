@@ -70,14 +70,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun modulecheck(): Boolean {
-        val output = executeSuCommand("ls /dev/rwProcMem")
+        val output = executeSuCommand("ls /dev/rwMem")
         if (output.isEmpty()) {
             return false
         } else {
             for (line in output) {
-                if (line.startsWith("ls: /dev/rwProcMem:")) {
+                if (line.startsWith("ls: /dev/rwMem:")) {
                     return false
-                } else if (line.startsWith("/dev/rwProcMem")) {
+                } else if (line.startsWith("/dev/rwMem")) {
                     return true
                 }
             }

@@ -38,13 +38,7 @@ class Memory {
     suspend fun getvalues(addresses: LongArray, overlayContext: OverlayContext): List<Any> {
         val pid = isattached().savepid()
         val hunt = HuntingMemory()
-        val valuesArray = when (valtypeselected) {
-            "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-            "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-            "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-            "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-            else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-        }
+        val valuesArray = hunt.readmem(pid, addresses, valtypeselected, overlayContext).asList()
         return valuesArray
     }
 
@@ -60,23 +54,10 @@ class Memory {
 
         val addrs = longArrayOf(cleanedAddr.toLong(16))
 
-        val valueint = hunt.readMultiInt(pid, addrs, overlayContext)
-        val valuelong = hunt.readMultiLong(pid, addrs, overlayContext)
-        val valuefloat = hunt.readMultiFloat(pid, addrs, overlayContext)
-        val valuedouble = hunt.readMultiDouble(pid, addrs, overlayContext)
+        val value = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
+
         val values: MutableList<MatchInfo> = mutableListOf()
-        if (valueint[0] != 0) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valueint[0].toString(), "int"))
-        }
-        if (valuelong[0] != 0L) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuelong[0].toString(), "long"))
-        }
-        if (valuefloat[0] != 0.0f) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuefloat[0].toString(), "float"))
-        }
-        if (valuedouble[0] != 0.0) {
-            values.add(MatchInfo(cleanedAddr.toLong(16), valuedouble[0].toString(), "double"))
-        }
+        values.add(MatchInfo(cleanedAddr.toLong(16), value[0], valtypeselected))
         matches.clear()
         if (values.isNotEmpty()) {
             matches.addAll(values)
@@ -108,24 +89,10 @@ class Memory {
 
         val addrs = longArrayOf(address)
 
-        val valueint = hunt.readMultiInt(pid, addrs, overlayContext)
-        val valuelong = hunt.readMultiLong(pid, addrs, overlayContext)
-        val valuefloat = hunt.readMultiFloat(pid, addrs, overlayContext)
-        val valuedouble = hunt.readMultiDouble(pid, addrs, overlayContext)
+        val valuestr = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
 
         val values: MutableList<MatchInfo> = mutableListOf()
-        if (valueint[0] != 0) {
-            values.add(MatchInfo(address, valueint[0].toString(), "int"))
-        }
-        if (valuelong[0] != 0L) {
-            values.add(MatchInfo(address, valuelong[0].toString(), "long"))
-        }
-        if (valuefloat[0] != 0.0f) {
-            values.add(MatchInfo(address, valuefloat[0].toString(), "float"))
-        }
-        if (valuedouble[0] != 0.0) {
-            values.add(MatchInfo(address, valuedouble[0].toString(), "double"))
-        }
+        values.add(MatchInfo(address, valuestr[0], valtypeselected))
         matches.clear()
         if (values.isNotEmpty()) {
             matches.addAll(values)
@@ -135,211 +102,215 @@ class Memory {
 
     }
 
-    suspend fun scanAgainstValue(numValStr: String, overlayContext: OverlayContext) {
+    suspend fun scanAgainstValue(numValStr: String, currentmatcheslist: List<MatchInfo>, overlayContext: OverlayContext) {
         try {
             val pid = isattached().savepid()
             val hunt = HuntingMemory()
             val results: MutableList<MatchInfo> = mutableListOf()
             val scantype = getscantype()
-            val value = if (numValStr.contains("..")) {
-                numValStr.split("..")
-            } else {
-                listOf(numValStr, "0")
-            }
 
-            if (numValStr.contains(";") && numValStr.contains(":")) {
-                val splited = numValStr.split(":")
-                val distance = splited[1].toLong()
-                val values = splited[0].split(";")
-                val valuesArrayInt = IntArray(values.size)
-                val valuesArrayLong = LongArray(values.size)
-                val valuesArrayFloat = FloatArray(values.size)
-                val valuesArrayDouble = DoubleArray(values.size)
-                if (valtypeselected == "int") {
+            if (scantype == 3 || scantype == 4) {
+                if (scantype == 3) {
+                    val targetlist: MutableList<Long> = mutableListOf()
                     var i = 0
-                    while (i < values.size) {
-                        valuesArrayInt[i] = values[i].toIntOrNull()!!
+                    while (i < currentmatcheslist.size) {
+                        targetlist.add(currentmatcheslist[i].address)
                         i++
                     }
-                } else if (valtypeselected == "long") {
-                    var i = 0
-                    while (i < values.size) {
-                        valuesArrayLong[i] = values[i].toLongOrNull()!!
-                        i++
-                    }
-                } else if (valtypeselected == "float") {
-                    var i = 0
-                    while (i < values.size) {
-                        valuesArrayFloat[i] = values[i].toFloatOrNull()!!
-                        i++
-                    }
-                } else if (valtypeselected == "double") {
-                    var i = 0
-                    while (i < values.size) {
-                        valuesArrayDouble[i] = values[i].toDoubleOrNull()!!
-                        i++
-                    }
-                }
-
-                if (matches.isEmpty()) {
-                    val addresses = when (valtypeselected) {
-                        "int" -> hunt.searchMultiInt(pid, valuesArrayInt, distance, overlayContext)
-                        "long" -> hunt.searchMultiLong(pid, valuesArrayLong, distance, overlayContext)
-                        "float" -> hunt.searchMultiFloat(pid, valuesArrayFloat, distance, overlayContext)
-                        "double" -> hunt.searchMultiDouble(pid, valuesArrayDouble, distance, overlayContext)
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-                    val valuesArray = when (valtypeselected) {
-                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-                    var i = 0
-                    while (i < addresses.size && i < valuesArray.size) {
-                        results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
-                        i++
-                    }
-                } else {
-                    val addresses = LongArray(matches.size)
-                    var a = 0
-                    while (a < addresses.size) {
-                        addresses[a] = matches[a].address
-                        a++
-                    }
-                    val valuesArray = when (valtypeselected) {
-                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-
-                    var i = 0
-                    while (i < addresses.size && i < valuesArray.size) {
-                        if (matches[i].prevValue == valuesArray[i].toString()) {
-                            results.add(MatchInfo(addresses[i], valuesArray[i].toString(), valtypeselected))
+                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, overlayContext)
+                    when (valtypeselected) {
+                        "int" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toInt() != valuesstr[j].toInt()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
                         }
-                        i++
+                        "long" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toLong() != valuesstr[j].toLong()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                        "float" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toFloat() != valuesstr[j].toFloat()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                        "double" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toDouble() != valuesstr[j].toDouble()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
                     }
-                }
-            } else {
-                if (matches.isEmpty()) {
-                    val addresses = when (valtypeselected) {
-                        "int" -> hunt.searchInt(
-                            pid,
-                            value[0].toInt(),
-                            value[1].toInt(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "long" -> hunt.searchLong(
-                            pid,
-                            value[0].toLong(),
-                            value[1].toLong(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "float" -> hunt.searchFloat(
-                            pid,
-                            value[0].toFloat(),
-                            value[1].toFloat(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "double" -> hunt.searchDouble(
-                            pid,
-                            value[0].toDouble(),
-                            value[1].toDouble(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-                    val valuesArray = when (valtypeselected) {
-                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-                    var i = 0
-                    while (i < addresses.size && i < valuesArray.size) {
-                        results.add(
-                            MatchInfo(
-                                addresses[i],
-                                valuesArray[i].toString(),
-                                valtypeselected
-                            )
-                        )
-                        i++
+                    matches.clear()
+                    if (results.isNotEmpty()) {
+                        matches.addAll(results)
+                    } else {
+                        Log.d("Memory", "No results to write")
                     }
                 } else {
-                    val addresses = when (valtypeselected) {
-                        "int" -> hunt.filterMemInt(
-                            pid,
-                            value[0].toInt(),
-                            value[1].toInt(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "long" -> hunt.filterMemLong(
-                            pid,
-                            value[0].toLong(),
-                            value[1].toLong(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "float" -> hunt.filterMemFloat(
-                            pid,
-                            value[0].toFloat(),
-                            value[1].toFloat(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        "double" -> hunt.filterMemDouble(
-                            pid,
-                            value[0].toDouble(),
-                            value[1].toDouble(),
-                            scantype,
-                            overlayContext
-                        )
-
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
-                    val valuesArray = when (valtypeselected) {
-                        "int" -> hunt.readMultiInt(pid, addresses, overlayContext).asList()
-                        "long" -> hunt.readMultiLong(pid, addresses, overlayContext).asList()
-                        "float" -> hunt.readMultiFloat(pid, addresses, overlayContext).asList()
-                        "double" -> hunt.readMultiDouble(pid, addresses, overlayContext).asList()
-                        else -> throw IllegalArgumentException("Unsupported value type selected: $valtypeselected")
-                    }
+                    val targetlist: MutableList<Long> = mutableListOf()
                     var i = 0
-                    while (i < addresses.size && i < valuesArray.size) {
-                        results.add(
-                            MatchInfo(
-                                addresses[i],
-                                valuesArray[i].toString(),
-                                valtypeselected
-                            )
-                        )
+                    while (i < currentmatcheslist.size) {
+                        targetlist.add(currentmatcheslist[i].address)
                         i++
                     }
+                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, overlayContext)
+                    when (valtypeselected) {
+                        "int" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toInt() == valuesstr[j].toInt()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                        "long" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toLong() == valuesstr[j].toLong()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                        "float" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toFloat() == valuesstr[j].toFloat()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                        "double" -> {
+                            var j = 0
+                            while (j < targetlist.size && j < valuesstr.size) {
+                                if (currentmatcheslist[j].prevValue.toDouble() == valuesstr[j].toDouble()) {
+                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                                }
+                                j++
+                            }
+                        }
+                    }
+                    matches.clear()
+                    if (results.isNotEmpty()) {
+                        matches.addAll(results)
+                    } else {
+                        Log.d("Memory", "No results to write")
+                    }
                 }
-            }
-            matches.clear()
-            if (results.isNotEmpty()) {
-                matches.addAll(results)
             } else {
-                Log.d("Memory", "No results to write")
+
+                val value = if (numValStr.contains("..")) {
+                    numValStr.split("..")
+                } else {
+                    listOf(numValStr, "0")
+                }
+
+                if (numValStr.contains(";") && numValStr.contains(":")) {
+                    val splited = numValStr.split(":")
+                    val distance = splited[1].toLong()
+                    val values = splited[0].split(";")
+                    val valuesarray = values.toTypedArray()
+                    if (matches.isEmpty()) {
+                        val addresses = hunt.searchmemgroup(
+                            pid,
+                            valtypeselected,
+                            valuesarray,
+                            distance,
+                            overlayContext
+                        )
+                        val vvalues = hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                        var i = 0
+                        while (i < addresses.size && i < values.size) {
+                            results.add(MatchInfo(addresses[i], vvalues[i], valtypeselected))
+                            i++
+                        }
+                    } else {
+                        val addrs = hunt.filtermemgroup(
+                            pid,
+                            valtypeselected,
+                            valuesarray,
+                            currentmatcheslist,
+                            overlayContext
+                        )
+                        val vvalues = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
+                        var i = 0
+                        while (i < addrs.size && i < values.size) {
+                            results.add(MatchInfo(addrs[i], vvalues[i], valtypeselected))
+                            i++
+                        }
+                    }
+                } else {
+                    if (matches.isEmpty()) {
+                        val addresses = hunt.searchmem(
+                            pid,
+                            valtypeselected,
+                            value[0],
+                            value[1],
+                            scantype,
+                            overlayContext
+                        )
+                        val valuesArray =
+                            hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                        var i = 0
+                        while (i < addresses.size && i < valuesArray.size) {
+                            results.add(
+                                MatchInfo(
+                                    addresses[i],
+                                    valuesArray[i],
+                                    valtypeselected
+                                )
+                            )
+                            i++
+                        }
+                    } else {
+                        val addresses = hunt.filtermem(
+                            pid,
+                            valtypeselected,
+                            value[0],
+                            value[1],
+                            scantype,
+                            currentmatcheslist,
+                            overlayContext
+                        )
+                        val valuesArray =
+                            hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                        var i = 0
+                        while (i < addresses.size && i < valuesArray.size) {
+                            results.add(
+                                MatchInfo(
+                                    addresses[i],
+                                    valuesArray[i],
+                                    valtypeselected
+                                )
+                            )
+                            i++
+                        }
+                    }
+                }
+                matches.clear()
+                if (results.isNotEmpty()) {
+                    matches.addAll(results)
+                } else {
+                    Log.d("Memory", "No results to write")
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

@@ -14,6 +14,7 @@ class ScanOptions(
 
 suspend fun onNextScanClicked(
     scanOptions: ScanOptions,
+    currentmatcheslist: List<MatchInfo>,
     overlayContext: OverlayContext,
     onBeforeScanStart: () -> Unit,
     onScanDone: () -> Unit,
@@ -42,6 +43,7 @@ suspend fun onNextScanClicked(
             } else {
                 mem.scanAgainstValue(
                     scanOptions.inputVal,
+                    currentmatcheslist,
                     overlayContext
                 )
             }
