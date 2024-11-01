@@ -21,6 +21,14 @@ class HuntService : RootService() {
             writemultiple(addresses, pid, datatype, value)
         }
 
+        override fun istartFreezeExecution(addresses: LongArray, pid: Long, datatype: String, value: String) {
+            startFreezeExecution(addresses, pid, datatype, value)
+        }
+
+        override fun istopFreezeExecution() {
+            stopFreezeExecution()
+        }
+
         override fun isearchvalues(pid: Long, datatype: String, value1: String, value2: String, scantype: Int, regions: String): LongArray {
             return searchvalues(pid, datatype, value1, value2, scantype, regions)
         }
@@ -41,6 +49,10 @@ class HuntService : RootService() {
     external fun readmultiple(addresses: LongArray, pid: Long, datatype: String): Array<String>
 
     external fun writemultiple(addresses: LongArray, pid: Long, datatype: String, value: String)
+
+    external fun startFreezeExecution(addresses: LongArray, pid: Long, datatype: String, value: String)
+
+    external fun stopFreezeExecution()
 
     external fun searchvalues(pid: Long, datatype: String, value1: String, value2: String, scantype: Int, regions: String): LongArray
 

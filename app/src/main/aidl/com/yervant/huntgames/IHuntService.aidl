@@ -7,6 +7,10 @@ interface IHuntService {
 
     void iwritemultiple(in long[] addresses, long pid, String datatype, String value);
 
+    void istartFreezeExecution(in long[] addresses, long pid, String datatype, String value);
+
+    void istopFreezeExecution();
+
     long[] isearchvalues(long pid, String datatype, String value1, String value2, int scantype, String regions);
 
     long[] ifiltervalues(long pid, String datatype, String value1, String value2, int scantype, in long[] addressArray);

@@ -154,4 +154,35 @@ class rwMem {
             }
         }
     }
+
+    fun freeze(pid: Long, addresses: LongArray, datatype: String, value: String, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    it.istartFreezeExecution(addresses, pid, datatype, value)
+                    onComplete()
+                } catch (e: Exception) {
+                    Log.e("rwMem", "Error freezing", e)
+                    onComplete()
+                }
+            } ?: run {
+                Log.e("rwMem", "HuntService is not connected")
+                onComplete()
+            }
+        }
+    }
+
+    fun stopFreeze(overlayContext: OverlayContext) {
+        ensureHuntServiceConnected(overlayContext) {
+            huntService?.let {
+                try {
+                    it.istopFreezeExecution()
+                } catch (e: Exception) {
+                    Log.e("rwMem", "Error stopping freeze", e)
+                }
+            } ?: run {
+                Log.e("rwMem", "HuntService is not connected")
+            }
+        }
+    }
 }

@@ -19,6 +19,25 @@ class Hunt {
 
     }
 
+    fun unfreezeall(overlayContext: OverlayContext) {
+        val rwmem = rwMem()
+        rwmem.stopFreeze(overlayContext)
+    }
+
+    fun freezeall(addrs: MutableList<AddressInfo>, value: String, overlayContext: OverlayContext) {
+        val pid = isattached().savepid()
+        val rwmem = rwMem()
+        var i = 0
+        val addresses = LongArray(addrs.size)
+
+        while (i < addrs.size) {
+            addresses[i] = addrs[i].matchInfo.address
+            i++
+        }
+        rwmem.stopFreeze(overlayContext)
+        rwmem.freeze(pid, addresses, valtypeselected, value, overlayContext)
+    }
+
     fun writeValueAtAddress(pid: Long, addrs: LongArray, value: String, valtype: String, overlayContext: OverlayContext) {
         val hunt = HuntingMemory()
         if(valtype == "int") {

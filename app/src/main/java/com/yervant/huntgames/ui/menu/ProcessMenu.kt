@@ -136,12 +136,27 @@ private fun _ProcessMenu(
         contentAlignment = Alignment.Center,
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            TextField(
-                value = searchQuery.value,
-                onValueChange = { searchQuery.value = it },
-                label = { Text("Search by package name") },
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-            )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextField(
+                    value = searchQuery.value,
+                    onValueChange = { searchQuery.value = it },
+                    label = { Text("Search by package name") },
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                )
+
+                Button(
+                    onClick = onRefreshClicked,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_refresh),
+                        contentDescription = "Refresh",
+                    )
+                }
+            }
 
             _ProcessMenuContent(
                 runningProcState = runningProcState,
@@ -197,12 +212,6 @@ private fun _ProcessMenuContent(
     buttonContainer {
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
             Text("Selected process: ${attachedStatusString.value}")
-        }
-        Button(onClick = onRefreshClicked, modifier = Modifier.padding(start = 10.dp)) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_refresh),
-                contentDescription = "Refresh",
-            )
         }
     }
     ProcessTable(

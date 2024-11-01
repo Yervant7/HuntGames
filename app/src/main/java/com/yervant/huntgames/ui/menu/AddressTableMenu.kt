@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
@@ -28,9 +30,12 @@ import com.yervant.huntgames.ui.EditAddressOverlayDialog
 import com.yervant.huntgames.ui.util.CreateTable
 import com.yervant.huntgames.backend.Hunt
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
+import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayDialog
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Memory
 import com.yervant.huntgames.ui.OverlayInputDialog
+import com.yervant.huntgames.ui.util.ConfirmDialog
+import com.yervant.huntgames.ui.util.ShowDialog
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
@@ -89,6 +94,26 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     }) {
 
                     Icon(Icons.Filled.Edit, "Edit All Matches")
+                }
+                Button(
+                    onClick = {
+                        OverlayInputDialog(overlayContext!!).show(
+                            title = "Freeze All",
+                            defaultValue = "999999999",
+                            onConfirm = { input: String ->
+                                Hunt().freezeall(savedAddresList, input, overlayContext)
+                            }
+                        )
+                    }) {
+
+                    Icon(Icons.Filled.CheckCircle, "Freeze All Matches")
+                }
+                Button(
+                    onClick = {
+                        Hunt().unfreezeall(overlayContext!!)
+                    }) {
+
+                    Icon(Icons.Filled.Clear, "UnFreeze All Matches")
                 }
             }
         }
