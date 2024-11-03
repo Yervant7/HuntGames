@@ -30,12 +30,9 @@ import com.yervant.huntgames.ui.EditAddressOverlayDialog
 import com.yervant.huntgames.ui.util.CreateTable
 import com.yervant.huntgames.backend.Hunt
 import com.kuhakupixel.libuberalles.overlay.OverlayContext
-import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayDialog
 import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Memory
 import com.yervant.huntgames.ui.OverlayInputDialog
-import com.yervant.huntgames.ui.util.ConfirmDialog
-import com.yervant.huntgames.ui.util.ShowDialog
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
@@ -214,7 +211,7 @@ fun readSavedAddressesFile(): List<MatchInfo> {
             val addr = parts[0]
             val value = parts[1]
             val valtype = parts[2]
-            savedaddresses.add(MatchInfo(addr.toLong(), value, valtype))
+            savedaddresses.add(MatchInfo(addr.toLong(16), value, valtype))
         }
     }
 

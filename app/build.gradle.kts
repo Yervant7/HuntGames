@@ -11,8 +11,8 @@ android {
         applicationId = "com.yervant.huntgames"
         minSdk = 29
         targetSdk = 34
-        versionCode = 41
-        versionName = "0.5.6"
+        versionCode = 42
+        versionName = "0.5.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -57,6 +57,7 @@ android {
 
 dependencies {
 
+    implementation(files("libs/luaj-jse-3.0.2.jar"))
     implementation("com.github.topjohnwu:libsu:6.0.0")
     implementation("androidx.activity:activity-ktx:1.9.0")
     implementation("androidx.compose.material:material:1.6.8")
@@ -75,7 +76,6 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.wear.compose:compose-material:1.3.1")
     implementation("com.google.guava:guava:33.2.1-jre")
-    implementation(files("libs/luaj-jse-3.0.2.jar"))
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")

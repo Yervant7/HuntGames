@@ -4,6 +4,7 @@ HuntGames is an open-source project aimed at providing tools for game hunting an
 
 ## Features
 
+- Lua scripts (see example.lua or LuaExecute.kt for reference)
 - Search values in memory of process.
 - Write values in memory of process.
 
@@ -43,7 +44,7 @@ We welcome contributions! Please fork the repository, create a feature branch, a
 ## Acknowledgments
 
 - Inspiration and Source of Kernel Module from the
-abcz316: https://github.com/abcz316
+abcz316: https://github.com/abcz316 and
 ri-char: https://github.com/ri-char
 
 - for the ui

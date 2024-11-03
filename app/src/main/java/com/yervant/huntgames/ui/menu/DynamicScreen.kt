@@ -24,7 +24,9 @@ sealed class MenuComponent {
 class DynamicScreen {
 
     @Composable
-    fun MenuTemplate(components: List<MenuComponent>, backgroundColor: State<Color>) {
+    fun MenuTemplate() {
+        val components = MenuManager.getComponents()
+        val backgroundColor = MenuManager.getBackgroundColor()
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -47,10 +49,7 @@ class DynamicScreen {
 
     @Composable
     fun CheckboxComponent(component: MenuComponent.Checkbox) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
             Checkbox(
                 checked = component.checked.value,
                 onCheckedChange = {
@@ -58,10 +57,7 @@ class DynamicScreen {
                     component.onCheck?.invoke(it)
                 }
             )
-            Text(
-                text = component.label,
-                modifier = Modifier.padding(start = 8.dp)
-            )
+            Text(text = component.label, modifier = Modifier.padding(start = 8.dp))
         }
     }
 
@@ -96,9 +92,7 @@ class DynamicScreen {
     @Composable
     fun ButtonComponent(component: MenuComponent.Button) {
         Button(
-            onClick = {
-                component.onClick?.invoke()
-            },
+            onClick = { component.onClick?.invoke() },
             modifier = Modifier.padding(bottom = 16.dp)
         ) {
             Text(component.label)
@@ -107,10 +101,7 @@ class DynamicScreen {
 
     @Composable
     fun TextComponent(component: MenuComponent.Text) {
-        Text(
-            text = component.content.value,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Text(text = component.content.value, modifier = Modifier.padding(bottom = 16.dp))
     }
 }
 
@@ -124,7 +115,9 @@ object MenuManager {
     fun getBackgroundColor() = backgroundColor
 
     fun clearComponents() {
-        components.clear()
+        if (components.isNotEmpty()) {
+            components.clear()
+        }
     }
 
     fun setBackgroundColor(color: Color) {

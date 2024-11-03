@@ -53,7 +53,7 @@ fun HomeMenu(askForOverlayPermission: () -> Unit, openFilePicker : () -> Unit) {
         Button(
             onClick = openFilePicker,
         ) {
-            Text("Import .lua File")
+            Text("Import lua File")
         }
     }
     if (showAskForDrawOverOtherApp.value) {
