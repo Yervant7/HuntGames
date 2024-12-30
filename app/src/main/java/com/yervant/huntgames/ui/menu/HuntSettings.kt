@@ -1,5 +1,6 @@
 package com.yervant.huntgames.ui.menu
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,9 +13,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.backend.LuaExecute
 import java.io.File
 
@@ -34,7 +35,7 @@ fun setRegions(regions: String) {
 }
 
 @Composable
-fun SettingsMenu(overlayContext: OverlayContext?) {
+fun SettingsMenu(context: Context?) {
     val words = listOf(
         "C_ALLOC",
         "C_BSS",
@@ -62,10 +63,10 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
 
     if (showDynamicInterface.value && executeLua.value && selectedFile.value.isNotEmpty()) {
         val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().ExecuteLuaAndMenu(file, overlayContext!!)
+        LuaExecute().ExecuteLuaAndMenu(file, context!!)
     } else if (executeLua.value && selectedFile.value.isNotEmpty()) {
         val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().executelua(file, overlayContext!!)
+        LuaExecute().executelua(file, context!!)
     } else {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -88,7 +89,7 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
                                 }
                             }
                         )
-                        Text(text = word)
+                        Text(text = word, color = Color.White)
                     }
                 }
                 item {
@@ -126,7 +127,7 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
                                 }
                             }
                         )
-                        Text(text = file.name)
+                        Text(text = file.name, color = Color.White)
                     }
                 }
             }
@@ -142,7 +143,7 @@ fun SettingsMenu(overlayContext: OverlayContext?) {
                     modifier = Modifier
                         .padding(16.dp)
                 ) {
-                    Text("Execute Python")
+                    Text("Execute Lua")
                 }
             }
         }

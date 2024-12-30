@@ -1,13 +1,20 @@
 package com.yervant.huntgames.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -15,7 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.kuhakupixel.libuberalles.overlay.OverlayPermission
+import androidx.activity.compose.setContent
 import com.yervant.huntgames.ui.theme.HuntGamesTheme
 import java.io.File
 import java.io.FileOutputStream
@@ -28,31 +35,62 @@ class MainActivity : ComponentActivity() {
         uri?.let { handleFileImport(it) }
     }
 
+    private lateinit var overlayPermissionLauncher: ActivityResultLauncher<Intent>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!suCheck() || !modulecheck()) {
-            Toast.makeText(this, "ERROR Root access or Module missing", Toast.LENGTH_SHORT).show()
+        overlayPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (Settings.canDrawOverlays(this)) {
+                showMainScreen()
+            } else {
+                Toast.makeText(this, "Permissão para exibir sobreposição negada.", Toast.LENGTH_SHORT).show()
+                finish()
+            }
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermission()
+        }
+
+        if (!suCheck() || !modulecheck()) {
+            Toast.makeText(this, "ERROR Root access or Module missing", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            overlayPermissionLauncher.launch(intent)
+        } else {
+            showMainScreen()
+        }
+    }
+
+    private fun showMainScreen() {
         setContent {
-            HuntGamesTheme(darkTheme = true) {
-                // A surface container using the 'background' color from the theme
+            HuntGamesTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen(
-                        askForOverlayPermission = {
-                            OverlayPermission.askForOverlayPermission(
-                                context = applicationContext,
-                                componentActivity = this,
-                            )
-                        },
-                        openFilePicker = { getContent.launch("*/*") }
-                    )
+                    MainScreen({ getContent.launch("*/*") })
                 }
             }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private fun requestNotificationPermission() {
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                100
+            )
         }
     }
 

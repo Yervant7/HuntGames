@@ -1,13 +1,13 @@
 package com.yervant.huntgames.backend
 
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
+import android.content.Context
 import com.yervant.huntgames.ui.menu.AddressInfo
 import com.yervant.huntgames.ui.menu.isattached
 import com.yervant.huntgames.ui.menu.valtypeselected
 
 class Hunt {
 
-    fun writeall(addrs: MutableList<AddressInfo>, value: String, overlayContext: OverlayContext) {
+    fun writeall(addrs: MutableList<AddressInfo>, value: String, context: Context) {
         val pid = isattached().savepid()
         val addresses = LongArray(addrs.size)
         var i = 0
@@ -15,16 +15,16 @@ class Hunt {
             addresses[i] = addrs[i].matchInfo.address
             i++
         }
-        writeValueAtAddress(pid, addresses, value, valtypeselected, overlayContext)
+        writeValueAtAddress(pid, addresses, value, valtypeselected, context)
 
     }
 
-    fun unfreezeall(overlayContext: OverlayContext) {
+    fun unfreezeall(context: Context) {
         val rwmem = rwMem()
-        rwmem.stopFreeze(overlayContext)
+        rwmem.stopFreeze(context)
     }
 
-    fun freezeall(addrs: MutableList<AddressInfo>, value: String, overlayContext: OverlayContext) {
+    fun freezeall(addrs: MutableList<AddressInfo>, value: String, context: Context) {
         val pid = isattached().savepid()
         val rwmem = rwMem()
         var i = 0
@@ -34,20 +34,20 @@ class Hunt {
             addresses[i] = addrs[i].matchInfo.address
             i++
         }
-        rwmem.stopFreeze(overlayContext)
-        rwmem.freeze(pid, addresses, valtypeselected, value, overlayContext)
+        rwmem.stopFreeze(context)
+        rwmem.freeze(pid, addresses, valtypeselected, value, context)
     }
 
-    fun writeValueAtAddress(pid: Long, addrs: LongArray, value: String, valtype: String, overlayContext: OverlayContext) {
+    fun writeValueAtAddress(pid: Long, addrs: LongArray, value: String, valtype: String, context: Context) {
         val hunt = HuntingMemory()
         if(valtype == "int") {
-            hunt.writemem(pid, addrs, "int", value, overlayContext)
+            hunt.writemem(pid, addrs, "int", value, context)
         } else if (valtype == "long") {
-            hunt.writemem(pid, addrs, "long", value, overlayContext)
+            hunt.writemem(pid, addrs, "long", value, context)
         } else if (valtype == "float") {
-            hunt.writemem(pid, addrs, "float", value, overlayContext)
+            hunt.writemem(pid, addrs, "float", value, context)
         } else if (valtype == "double") {
-            hunt.writemem(pid, addrs, "double", value, overlayContext)
+            hunt.writemem(pid, addrs, "double", value, context)
         }
     }
 }

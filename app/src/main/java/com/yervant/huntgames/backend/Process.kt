@@ -27,4 +27,10 @@ class Process {
 
         return processes
     }
+
+    fun processIsRunning(pid: String): Boolean {
+        val commandOutput = Shell.cmd("ps -e -o pid,cmdline | grep $pid").exec().out
+        if (commandOutput.size >= 2) return true
+        else return false
+    }
 }

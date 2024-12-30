@@ -17,7 +17,7 @@ HuntGames is an open-source project aimed at providing tools for game hunting an
 
 ## Installation
 
-1. Download apk in the realeases section
+1. Download apk in the releases section
 
 2. Compile the necessary kernel module from the [rwMem repository](https://github.com/Yervant7/rwMem):
     Instructions in the repository see too [Kernel_Action repository](https://github.com/Yervant7/Kernel_Action)
@@ -44,10 +44,11 @@ We welcome contributions! Please fork the repository, create a feature branch, a
 ## Acknowledgments
 
 - Inspiration and Source of Kernel Module from the
-abcz316: https://github.com/abcz316 and
+abcz316: https://github.com/abcz316
+- and
 ri-char: https://github.com/ri-char
 
-- for the ui
+- some references in ui
 KuhakuPixel: https://github.com/KuhakuPixel
 
 ---

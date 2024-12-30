@@ -1,7 +1,7 @@
 package com.yervant.huntgames.backend
 
+import android.content.Context
 import android.util.Log
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.yervant.huntgames.ui.menu.MatchInfo
 import com.yervant.huntgames.ui.menu.getscantype
 import com.yervant.huntgames.ui.menu.isattached
@@ -35,14 +35,14 @@ class Memory {
         }
     }
 
-    suspend fun getvalues(addresses: LongArray, overlayContext: OverlayContext): List<Any> {
+    suspend fun getValues(addresses: LongArray, context: Context): List<Any> {
         val pid = isattached().savepid()
         val hunt = HuntingMemory()
-        val valuesArray = hunt.readmem(pid, addresses, valtypeselected, overlayContext).asList()
+        val valuesArray = hunt.readmem(pid, addresses, valtypeselected, context).asList()
         return valuesArray
     }
 
-    suspend fun gotoAddress(address: String, overlayContext: OverlayContext) {
+    suspend fun gotoAddress(address: String, context: Context) {
         val pid = isattached().savepid()
         val hunt = HuntingMemory()
 
@@ -54,7 +54,7 @@ class Memory {
 
         val addrs = longArrayOf(cleanedAddr.toLong(16))
 
-        val value = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
+        val value = hunt.readmem(pid, addrs, valtypeselected, context)
 
         val values: MutableList<MatchInfo> = mutableListOf()
         values.add(MatchInfo(cleanedAddr.toLong(16), value[0], valtypeselected))
@@ -66,7 +66,7 @@ class Memory {
         }
     }
 
-    suspend fun gotoAddressAndOffset(addr: String, offset: String, issub: Boolean, overlayContext: OverlayContext) {
+    suspend fun gotoAddressAndOffset(addr: String, offset: String, issub: Boolean, context: Context) {
         val pid = isattached().savepid()
         val hunt = HuntingMemory()
 
@@ -89,7 +89,7 @@ class Memory {
 
         val addrs = longArrayOf(address)
 
-        val valuestr = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
+        val valuestr = hunt.readmem(pid, addrs, valtypeselected, context)
 
         val values: MutableList<MatchInfo> = mutableListOf()
         values.add(MatchInfo(address, valuestr[0], valtypeselected))
@@ -102,7 +102,7 @@ class Memory {
 
     }
 
-    suspend fun scanAgainstValue(numValStr: String, currentmatcheslist: List<MatchInfo>, overlayContext: OverlayContext) {
+    suspend fun scanAgainstValue(numValStr: String, currentmatcheslist: List<MatchInfo>, context: Context) {
         try {
             val pid = isattached().savepid()
             val hunt = HuntingMemory()
@@ -117,7 +117,7 @@ class Memory {
                         targetlist.add(currentmatcheslist[i].address)
                         i++
                     }
-                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, overlayContext)
+                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, context)
                     when (valtypeselected) {
                         "int" -> {
                             var j = 0
@@ -169,7 +169,7 @@ class Memory {
                         targetlist.add(currentmatcheslist[i].address)
                         i++
                     }
-                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, overlayContext)
+                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, context)
                     when (valtypeselected) {
                         "int" -> {
                             var j = 0
@@ -234,9 +234,9 @@ class Memory {
                             valtypeselected,
                             valuesarray,
                             distance,
-                            overlayContext
+                            context
                         )
-                        val vvalues = hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                        val vvalues = hunt.readmem(pid, addresses, valtypeselected, context)
                         var i = 0
                         while (i < addresses.size && i < values.size) {
                             results.add(MatchInfo(addresses[i], vvalues[i], valtypeselected))
@@ -248,9 +248,9 @@ class Memory {
                             valtypeselected,
                             valuesarray,
                             currentmatcheslist,
-                            overlayContext
+                            context
                         )
-                        val vvalues = hunt.readmem(pid, addrs, valtypeselected, overlayContext)
+                        val vvalues = hunt.readmem(pid, addrs, valtypeselected, context)
                         var i = 0
                         while (i < addrs.size && i < values.size) {
                             results.add(MatchInfo(addrs[i], vvalues[i], valtypeselected))
@@ -265,10 +265,10 @@ class Memory {
                             value[0],
                             value[1],
                             scantype,
-                            overlayContext
+                            context
                         )
                         val valuesArray =
-                            hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                            hunt.readmem(pid, addresses, valtypeselected, context)
                         var i = 0
                         while (i < addresses.size && i < valuesArray.size) {
                             results.add(
@@ -288,10 +288,10 @@ class Memory {
                             value[1],
                             scantype,
                             currentmatcheslist,
-                            overlayContext
+                            context
                         )
                         val valuesArray =
-                            hunt.readmem(pid, addresses, valtypeselected, overlayContext)
+                            hunt.readmem(pid, addresses, valtypeselected, context)
                         var i = 0
                         while (i < addresses.size && i < valuesArray.size) {
                             results.add(

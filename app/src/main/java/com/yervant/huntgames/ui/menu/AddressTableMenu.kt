@@ -1,5 +1,6 @@
 package com.yervant.huntgames.ui.menu
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,20 +20,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.yervant.huntgames.ui.AddressOverlayDialog
-import com.yervant.huntgames.ui.EditAddressOverlayDialog
-import com.yervant.huntgames.ui.util.CreateTable
 import com.yervant.huntgames.backend.Hunt
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
-import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Memory
-import com.yervant.huntgames.ui.OverlayInputDialog
+import com.yervant.huntgames.backend.Process
+import com.yervant.huntgames.ui.CreateTable
+import com.yervant.huntgames.ui.DialogCallback
 import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileOutputStream
@@ -51,7 +53,13 @@ fun AddressTableAddAddress(matchInfo: MatchInfo) {
 }
 
 @Composable
-fun AddressTableMenu(overlayContext: OverlayContext?) {
+fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
+
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showFreezeDialog by remember { mutableStateOf(false) }
+    var showAddressDialog by remember { mutableStateOf<Int?>(null) }
+    var showEditValueDialog by remember { mutableStateOf<AddressInfo?>(null) }
 
     Column(
         modifier = Modifier
@@ -63,89 +71,101 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
             horizontalAlignment = Alignment.Start
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(), Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Button(
-                    onClick = {
-                        OverlayInfoDialog(overlayContext!!).show(
-                            title = "Info Dialog",
-                            text = "Delete all addresses?",
-                            onConfirm = {
-                                savedAddresList.clear()
-                            },
-                        )
-
-                    }) {
-
+                Button(onClick = { showDeleteDialog = true }) {
                     Icon(Icons.Filled.Delete, "Delete All Matches")
                 }
-                Button(
-                    onClick = {
-                        OverlayInputDialog(overlayContext!!).show(
-                            title = "Edit All",
-                            defaultValue = "999999999",
-                            onConfirm = { input: String ->
-                                Hunt().writeall(savedAddresList, input, overlayContext)
-                            }
-                        )
-                    }) {
-
+                Button(onClick = { showEditDialog = true }) {
                     Icon(Icons.Filled.Edit, "Edit All Matches")
                 }
-                Button(
-                    onClick = {
-                        OverlayInputDialog(overlayContext!!).show(
-                            title = "Freeze All",
-                            defaultValue = "999999999",
-                            onConfirm = { input: String ->
-                                Hunt().freezeall(savedAddresList, input, overlayContext)
-                            }
-                        )
-                    }) {
-
+                Button(onClick = { showFreezeDialog = true }) {
                     Icon(Icons.Filled.CheckCircle, "Freeze All Matches")
                 }
-                Button(
-                    onClick = {
-                        Hunt().unfreezeall(overlayContext!!)
-                    }) {
-
+                Button(onClick = { Hunt().unfreezeall(context!!) }) {
                     Icon(Icons.Filled.Clear, "UnFreeze All Matches")
                 }
             }
         }
+
         SavedAddressesTable(
             modifier = Modifier.weight(0.8f),
-            overlayContext = overlayContext!!,
             savedAddressList = savedAddresList,
-            onAddressClicked = { itemIndex: Int ->
-                AddressOverlayDialog(
-                    overlayContext = overlayContext!!,
-                    onAddressDeleted = {
-                        savedAddresList.removeAt(index = itemIndex)
-                    }
-
-                ).show(title = "Address ", onConfirm = {})
-
+            onAddressClicked = { itemIndex ->
+                showAddressDialog = itemIndex
             },
-            onValueClicked = { addressInfo: AddressInfo ->
-                EditAddressOverlayDialog(overlayContext!!).show(
-                    title = "Edit value of $addressInfo",
-                    onConfirm = { newValue: String ->
-                        val hunt = Hunt()
-                        val addr = LongArray(1)
-                        addr[0] = addressInfo.matchInfo.address
-                        hunt.writeValueAtAddress(
-                            isattached().savepid(),
-                            addr,
-                            newValue,
-                            addressInfo.matchInfo.valuetype,
-                            overlayContext
-                        )
-                    }
-                )
+            onValueClicked = { addressInfo ->
+                showEditValueDialog = addressInfo
             }
         )
+
+        if (showDeleteDialog) {
+            dialogCallback.showInfoDialog(
+                title = "Hunt Games",
+                message = "Delete all addresses?",
+                onConfirm = {
+                    savedAddresList.clear()
+                },
+                onDismiss = { showDeleteDialog = false }
+            )
+            showDeleteDialog = false
+        }
+
+        if (showEditDialog) {
+            dialogCallback.showInputDialog(
+                title = "Edit All",
+                defaultValue = "999999999",
+                onConfirm = { input ->
+                    Hunt().writeall(savedAddresList, input, context!!)
+                },
+                onDismiss = { showEditDialog = false }
+            )
+            showEditDialog = false
+        }
+
+        if (showFreezeDialog) {
+            dialogCallback.showInputDialog(
+                title = "Freeze All",
+                defaultValue = "999999999",
+                onConfirm = { input ->
+                    Hunt().freezeall(savedAddresList, input, context!!)
+                },
+                onDismiss = { showFreezeDialog = false }
+            )
+            showFreezeDialog = false
+        }
+
+        showAddressDialog?.let { index ->
+            dialogCallback.showAddressDialog(
+                title = "Address",
+                onAddressDeleted = { savedAddresList.removeAt(index) },
+                onDismiss = { showAddressDialog = null }
+            )
+            showAddressDialog = null
+        }
+
+        showEditValueDialog?.let { addressInfo ->
+            dialogCallback.showInputDialog(
+                title = "Edit value of $addressInfo",
+                defaultValue = "999999999",
+                onConfirm = { newValue ->
+                    val hunt = Hunt()
+                    val addr = LongArray(1)
+                    addr[0] = addressInfo.matchInfo.address
+                    hunt.writeValueAtAddress(
+                        isattached().savepid(),
+                        addr,
+                        newValue,
+                        addressInfo.matchInfo.valuetype,
+                        context!!
+                    )
+                },
+                onDismiss = { showEditValueDialog = null }
+            )
+            showEditValueDialog = null
+        }
+
         val fileOutputStream = FileOutputStream(savedaddressesfile)
         val file = File(savedaddressesfile)
         val contentfile: MutableList<String> = mutableListOf()
@@ -171,7 +191,7 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
                     savedAddresList.isNotEmpty() &&
                     contentfile.isNotEmpty()
                 ) {
-                    refreshvaluetable(overlayContext!!)
+                    refreshValueTable(context!!, dialogCallback)
                     delay(10.seconds)
                 }
             }
@@ -179,11 +199,34 @@ fun AddressTableMenu(overlayContext: OverlayContext?) {
     }
 }
 
-suspend fun refreshvaluetable(overlayContext: OverlayContext) {
+suspend fun refreshValueTable(context: Context, dialogCallback: DialogCallback) {
     val mem = Memory()
     val currentsavedaddressList = readSavedAddressesFile()
     val fileOutputStream = FileOutputStream(savedaddressesfile)
     val printWriter = PrintWriter(fileOutputStream)
+
+    val pid = isattached().savepid()
+
+    if (pid < 0) {
+        dialogCallback.showInfoDialog(
+            title = "Hunt Games",
+            message = "No Process Attached",
+            onConfirm = {},
+            onDismiss = {}
+        )
+        return
+    }
+
+    if (!Process().processIsRunning(pid.toString())) {
+        dialogCallback.showInfoDialog(
+            title = "Hunt Games",
+            message = "Process Not Exist Anymore",
+            onConfirm = {},
+            onDismiss = {}
+        )
+        isattached().reset()
+        return
+    }
 
     val addresses = LongArray(currentsavedaddressList.size)
     var i = 0
@@ -192,11 +235,18 @@ suspend fun refreshvaluetable(overlayContext: OverlayContext) {
         i++
     }
 
-    val values = mem.getvalues(addresses, overlayContext)
-    for (value in values) {
-        val line = "${currentsavedaddressList[i].address} $value"
+    val values = mem.getValues(addresses, context)
+    values.forEachIndexed { index, value ->
+        val line = "${currentsavedaddressList[index].address} $value"
         printWriter.println(line)
-        savedAddresList.add(AddressInfo(MatchInfo(currentsavedaddressList[i].address, value.toString(), currentsavedaddressList[i].valuetype), valtypeselected))
+        savedAddresList.add(AddressInfo(
+            MatchInfo(
+                currentsavedaddressList[index].address,
+                value.toString(),
+                currentsavedaddressList[index].valuetype
+            ),
+            valtypeselected
+        ))
     }
     printWriter.close()
 }
@@ -222,7 +272,6 @@ fun readSavedAddressesFile(): List<MatchInfo> {
 @Composable
 fun SavedAddressesTable(
     modifier: Modifier = Modifier,
-    overlayContext: OverlayContext,
     savedAddressList: SnapshotStateList<AddressInfo>,
     onValueClicked: (addressInfo: AddressInfo) -> Unit,
     onAddressClicked: (itemIndex: Int) -> Unit
@@ -248,13 +297,13 @@ fun SavedAddressesTable(
                             onAddressClicked(rowIndex)
                         },
                 ) {
-                    Text(text = savedAddressList[rowIndex].matchInfo.address.toString())
+                    Text(text = savedAddressList[rowIndex].matchInfo.address.toString(), color = Color.White)
                 }
             }
 
             // num type
             if (colIndex == 1) {
-                Text(text = savedAddressList[rowIndex].matchInfo.valuetype)
+                Text(text = savedAddressList[rowIndex].matchInfo.valuetype, color = Color.White)
             }
 
             // value
@@ -270,16 +319,10 @@ fun SavedAddressesTable(
                         },
                 ) {
                     Text(
-                        text = savedAddressList[rowIndex].matchInfo.prevValue,
+                        text = savedAddressList[rowIndex].matchInfo.prevValue, color = Color.White
                     )
                 }
             }
         }
     )
-}
-
-@Composable
-@Preview
-fun AddressTablePreview() {
-    AddressTableMenu(null)
 }

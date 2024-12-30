@@ -1,40 +1,30 @@
 package com.yervant.huntgames.ui.menu
 
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.*
 import com.yervant.huntgames.R
-import com.kuhakupixel.libuberalles.overlay.service.dialog.OverlayInfoDialog
 import com.yervant.huntgames.backend.Process
 import com.yervant.huntgames.backend.Process.ProcessInfo
-import androidx.compose.runtime.LaunchedEffect
+import com.yervant.huntgames.ui.DialogCallback
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.seconds
-import androidx.compose.runtime.*
-import com.yervant.huntgames.ui.util.CreateTable
 
 private var attachedStatusString: MutableState<String> = mutableStateOf("None")
 private var success: Boolean = false
-private var svpid: Long = -1
+private var svpid: Long = -1L
 
 class isattached {
     fun alert(): Boolean {
@@ -42,6 +32,10 @@ class isattached {
     }
     fun savepid(): Long {
         return if (svpid != -1L) svpid else -1
+    }
+    fun reset() {
+        svpid = -1L
+        success = false
     }
 }
 
@@ -51,12 +45,16 @@ fun AttachToProcess(
     onAttachSuccess: () -> Unit,
     onAttachFailure: (msg: String) -> Unit,
 ) {
-    success = true
-    onAttachSuccess()
+    if (Process().processIsRunning(pid.toString())) {
+        success = true
+        onAttachSuccess()
+    } else {
+        onProcessNoExistAnymore()
+    }
 }
 
 @Composable
-fun ProcessMenu(overlayContext: OverlayContext?) {
+fun ProcessMenu(dialogCallback: DialogCallback) {
     val currentProcList = remember { mutableStateListOf<ProcessInfo>() }
     val searchQuery = remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
@@ -86,38 +84,42 @@ fun ProcessMenu(overlayContext: OverlayContext?) {
     _ProcessMenu(
         runningProcState = filteredProcList,
         searchQuery = searchQuery,
-        onAttach = { pid: String, procName: String, memory: String ->
-            OverlayInfoDialog(overlayContext!!).show(
-                title = "Attach to $pid - $procName?",
-                text = "",
+        onAttach = { pid, procName, memory ->
+            dialogCallback.showInfoDialog(
+                title = "Hunt Games",
+                message = "Attach to $pid - $procName?",
                 onConfirm = {
                     AttachToProcess(
                         pid = pid.toLong(),
                         onAttachSuccess = {
-                            OverlayInfoDialog(overlayContext).show(
-                                title = "Attaching to $procName is successful",
+                            dialogCallback.showInfoDialog(
+                                title = "Hunt Games",
+                                message = "Attaching to $procName is successful",
                                 onConfirm = {},
-                                text = "",
+                                onDismiss = {}
                             )
                             attachedStatusString.value = "$pid - $procName"
                             svpid = pid.toLong()
                         },
                         onProcessNoExistAnymore = {
-                            OverlayInfoDialog(overlayContext).show(
-                                title = "Process $procName is not running anymore, Can't attach",
+                            dialogCallback.showInfoDialog(
+                                title = "Hunt Games",
+                                message = "Process $procName is not running anymore, Can't attach",
                                 onConfirm = {},
-                                text = "",
+                                onDismiss = {}
                             )
                         },
-                        onAttachFailure = { msg: String ->
-                            OverlayInfoDialog(overlayContext).show(
-                                title = msg,
+                        onAttachFailure = { msg ->
+                            dialogCallback.showInfoDialog(
+                                title = "Hunt Games",
+                                message = msg,
                                 onConfirm = {},
-                                text = "",
+                                onDismiss = {}
                             )
-                        },
+                        }
                     )
                 },
+                onDismiss = {}
             )
         },
         onRefreshClicked = { refreshProcList() },
@@ -131,97 +133,34 @@ private fun _ProcessMenu(
     onRefreshClicked: () -> Unit,
     onAttach: (pid: String, procName: String, memory: String) -> Unit,
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextField(
-                    value = searchQuery.value,
-                    onValueChange = { searchQuery.value = it },
-                    label = { Text("Search by package name") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 8.dp)
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextField(
+                value = searchQuery.value,
+                onValueChange = { searchQuery.value = it },
+                label = { Text("Search by package name", color = Color.White) },
+                modifier = Modifier.weight(1f).padding(end = 8.dp)
+            )
+
+            Button(onClick = onRefreshClicked) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_refresh),
+                    contentDescription = "Refresh"
                 )
+            }
+        }
 
-                Button(
-                    onClick = onRefreshClicked,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+            itemsIndexed(runningProcState) { index, process ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {onAttach(process.pid, process.packageName, process.memory)},
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_refresh),
-                        contentDescription = "Refresh",
-                    )
-                }
-            }
-
-            _ProcessMenuContent(
-                runningProcState = runningProcState,
-                onRefreshClicked = onRefreshClicked,
-                onAttach = onAttach,
-                buttonContainer = { content -> Row(content = { content() }) }
-            )
-        }
-    }
-}
-
-@Composable
-fun ProcessTable(
-    processList: List<ProcessInfo>,
-    onProcessSelected: (pid: String, procName: String, memory: String) -> Unit,
-) {
-    CreateTable(
-        modifier = Modifier.padding(16.dp),
-        colNames = listOf("Pid", "Name", "Memory"),
-        colWeights = listOf(0.2f, 0.5f, 0.3f),
-        itemCount = processList.size,
-        minEmptyItemCount = 50,
-        onRowClicked = { rowIndex: Int ->
-            onProcessSelected(
-                processList[rowIndex].pid,
-                processList[rowIndex].packageName,
-                processList[rowIndex].memory
-            )
-        },
-        drawCell = { rowIndex: Int, colIndex: Int ->
-            when (colIndex) {
-                0 -> Text(text = processList[rowIndex].pid)
-                1 -> Text(text = processList[rowIndex].packageName)
-                2 -> {
-                    val memoryInMB = processList[rowIndex].memory.toLong() / 1024
-                    Text(text = "$memoryInMB MB")
+                    Text(text = process.pid, modifier = Modifier.weight(0.2f), color = Color.White)
+                    Text(text = process.packageName, modifier = Modifier.weight(0.5f), color = Color.White)
+                    Text(text = "${process.memory.toLong() / 1024} MB", modifier = Modifier.weight(0.3f), color = Color.White)
                 }
             }
         }
-    )
-}
-
-@Composable
-private fun _ProcessMenuContent(
-    runningProcState: List<ProcessInfo>,
-    onRefreshClicked: () -> Unit,
-    onAttach: (pid: String, procName: String, memory: String) -> Unit,
-    buttonContainer: @Composable (content: @Composable () -> Unit) -> Unit
-) {
-    if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT) {
-        Text("Selected process: ${attachedStatusString.value}")
     }
-    buttonContainer {
-        if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            Text("Selected process: ${attachedStatusString.value}")
-        }
-    }
-    ProcessTable(
-        processList = runningProcState,
-        onProcessSelected = onAttach,
-    )
-}
-
-@Composable
-@Preview
-fun ProcessMenuPreview() {
-    ProcessMenu(null)
 }

@@ -1,6 +1,6 @@
 package com.yervant.huntgames.ui.menu
 
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
+import android.content.Context
 import com.yervant.huntgames.backend.Memory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,7 +15,7 @@ class ScanOptions(
 suspend fun onNextScanClicked(
     scanOptions: ScanOptions,
     currentmatcheslist: List<MatchInfo>,
-    overlayContext: OverlayContext,
+    context: Context,
     onBeforeScanStart: () -> Unit,
     onScanDone: () -> Unit,
     onScanError: (e: Exception) -> Unit,
@@ -37,14 +37,14 @@ suspend fun onNextScanClicked(
                 val issub = scanOptions.inputVal.contains("-")
                 val addr = value[0]
                 val offset = value[1]
-                mem.gotoAddressAndOffset(addr, offset, issub, overlayContext)
+                mem.gotoAddressAndOffset(addr, offset, issub, context)
             } else if (scanOptions.inputVal.startsWith("0x")){
-                mem.gotoAddress(scanOptions.inputVal, overlayContext)
+                mem.gotoAddress(scanOptions.inputVal, context)
             } else {
                 mem.scanAgainstValue(
                     scanOptions.inputVal,
                     currentmatcheslist,
-                    overlayContext
+                    context
                 )
             }
         }

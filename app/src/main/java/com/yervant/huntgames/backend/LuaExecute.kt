@@ -1,8 +1,8 @@
 package com.yervant.huntgames.backend
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.Composable
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.topjohnwu.superuser.Shell
 import com.yervant.huntgames.backend.Memory.Companion.matches
 import com.yervant.huntgames.ui.menu.DynamicScreen
@@ -22,19 +22,19 @@ import java.io.File
 
 class LuaExecute {
 
-    fun executelua(script: File, overlayContext: OverlayContext) {
+    fun executelua(script: File, context: Context) {
         val globals = JsePlatform.standardGlobals()
-        HG.exportToLua(globals, overlayContext)
+        HG.exportToLua(globals, context)
         val chunk = globals.loadfile(script.absolutePath)
         chunk.call()
     }
 
     @Composable
-    fun ExecuteLuaAndMenu(scriptFile: File, overlayContext: OverlayContext) {
+    fun ExecuteLuaAndMenu(scriptFile: File, context: Context) {
         MenuManager.clearComponents()
         val globals = JsePlatform.standardGlobals()
         MenuManager.exportToLua(globals)
-        HG.exportToLua(globals, overlayContext)
+        HG.exportToLua(globals, context)
         val chunk = globals.loadfile(scriptFile.absolutePath)
         chunk.call()
         DynamicScreen().MenuTemplate()
@@ -61,7 +61,7 @@ object HG {
 
     private var luaGlobals: Globals? = null
 
-    fun exportToLua(globals: Globals, overlayContext: OverlayContext) {
+    fun exportToLua(globals: Globals, context: Context) {
         luaGlobals = globals
 
         globals["HG_set_regions"] = object : OneArgFunction() {
@@ -84,7 +84,7 @@ object HG {
             override fun call(arg1: LuaValue): LuaValue {
                 val address = arg1.checkjstring()
                 runBlocking {
-                    Memory().gotoAddress(address, overlayContext)
+                    Memory().gotoAddress(address, context)
                 }
                 return LuaValue.NIL
             }
@@ -102,7 +102,7 @@ object HG {
                 val addr = values[0]
                 val offset = values[1]
                 runBlocking {
-                    Memory().gotoAddressAndOffset(addr, offset, issub, overlayContext)
+                    Memory().gotoAddressAndOffset(addr, offset, issub, context)
                 }
                 return LuaValue.NIL
             }
@@ -113,7 +113,7 @@ object HG {
                 val value = arg1.checkjstring()
                 val emptylist: List<MatchInfo> = mutableListOf()
                 runBlocking {
-                    Memory().scanAgainstValue(value, emptylist, overlayContext)
+                    Memory().scanAgainstValue(value, emptylist, context)
                 }
                 return LuaValue.NIL
             }
@@ -124,7 +124,7 @@ object HG {
                 val value = arg1.checkjstring()
                 val list: List<MatchInfo> = matches
                 runBlocking {
-                    Memory().scanAgainstValue(value, list, overlayContext)
+                    Memory().scanAgainstValue(value, list, context)
                 }
                 return LuaValue.NIL
             }
@@ -137,7 +137,7 @@ object HG {
                 val cleaned_addr = addr.removePrefix("0x")
                 val address = longArrayOf(cleaned_addr.toLong(16))
                 val result = runBlocking {
-                    HuntingMemory().readmem(pid, address, valtypeselected, overlayContext)
+                    HuntingMemory().readmem(pid, address, valtypeselected, context)
                 }
                 return LuaValue.valueOf(result[0])
             }
@@ -151,7 +151,7 @@ object HG {
                 val cleaned_addr = addr.removePrefix("0x")
                 if (addr != null && value != null) {
                     val address = longArrayOf(cleaned_addr.toLong(16))
-                    Hunt().writeValueAtAddress(pid, address, value, valtypeselected, overlayContext)
+                    Hunt().writeValueAtAddress(pid, address, value, valtypeselected, context)
                 }
                 return LuaValue.NIL
             }
@@ -165,7 +165,7 @@ object HG {
                 val cleaned_addr = addr.removePrefix("0x")
                 if (addr != null && value != null) {
                     val address = longArrayOf(cleaned_addr.toLong(16))
-                    rwMem().freeze(pid, address, valtypeselected, value, overlayContext)
+                    rwMem().freeze(pid, address, valtypeselected, value, context)
                 }
                 return LuaValue.NIL
             }

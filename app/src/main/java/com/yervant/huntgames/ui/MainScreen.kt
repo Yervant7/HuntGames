@@ -1,42 +1,60 @@
 package com.yervant.huntgames.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.Composable
+import android.content.Intent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.navigation.compose.rememberNavController
-import com.yervant.huntgames.R
-import com.yervant.huntgames.ui.bottomnav.BottomBar
-import com.yervant.huntgames.ui.bottomnav.BottomBarMenu
-import com.yervant.huntgames.ui.bottomnav.BottomNavGraph
-import com.yervant.huntgames.ui.menu.HomeMenu
-
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 @Composable
-fun MainScreen(askForOverlayPermission: () -> Unit, openFilePicker: () -> Unit) {
+fun MainScreen(openFilePicker: () -> Unit) {
+    val ctx = LocalContext.current
 
-    val navController = rememberNavController()
-    // ============================ each menu in bottom nav ===================
-    val menus = listOf(
-        BottomBarMenu(
-            route = "Home",
-            title = "Home",
-            iconId = R.drawable.ic_home,
-            content = { HomeMenu(askForOverlayPermission = askForOverlayPermission, openFilePicker = openFilePicker) },
-        ),
-    )
-    // =====================================================
-    Scaffold(
-        bottomBar = {
-            BottomBar(
-                navController = navController,
-                menus = menus
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Happy Hunting!",
+                style = MaterialTheme.typography.headlineMedium
             )
-        },
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            BottomNavGraph(navController = navController, menus = menus, startDestinationIndex = 0)
+
+            Button(
+                onClick = {
+                    val serviceIntent = Intent(ctx, OverlayService::class.java)
+                    ctx.startForegroundService(serviceIntent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Start Hunting")
+            }
+
+            Button(
+                onClick = {
+                    val stopServiceIntent = Intent(ctx, OverlayService::class.java)
+                    ctx.stopService(stopServiceIntent)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Stop Hunting")
+            }
+
+            Button(
+                onClick = openFilePicker,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Import lua file")
+            }
         }
     }
 }

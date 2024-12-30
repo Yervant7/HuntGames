@@ -1,11 +1,11 @@
 package com.yervant.huntgames.backend
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Log
-import com.kuhakupixel.libuberalles.overlay.OverlayContext
 import com.topjohnwu.superuser.ipc.RootService
 import com.yervant.huntgames.IHuntService
 import com.yervant.huntgames.ui.menu.RegionSelected
@@ -34,25 +34,25 @@ class rwMem {
         }
     }
 
-    private fun ensureHuntServiceConnected(overlayContext: OverlayContext, onConnected: () -> Unit) {
+    private fun ensureHuntServiceConnected(context: Context, onConnected: () -> Unit) {
         if (huntService != null) {
             onConnected()
         } else {
             Log.d("rwMem", "HuntService is not connected. trying reconnect...")
-            reconnectToHuntService(overlayContext)
+            reconnectToHuntService(context)
             onHuntServiceConnected = onConnected
         }
     }
 
-    private fun reconnectToHuntService(overlayContext: OverlayContext) {
+    private fun reconnectToHuntService(context: Context) {
         CoroutineScope(Dispatchers.Main).launch {
-            val intent = Intent(overlayContext.service, HuntService::class.java)
+            val intent = Intent(context, HuntService::class.java)
             RootService.bind(intent, serviceConnection)
         }
     }
 
-    fun searchvalues(pid: Long, datatype: String, searchValue: String, searchValue2: String, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun searchvalues(pid: Long, datatype: String, searchValue: String, searchValue2: String, scantype: Int, context: Context, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     val regions = RegionSelected()
@@ -69,8 +69,8 @@ class rwMem {
         }
     }
 
-    fun filtervalues(pid: Long, datatype: String, addressArray: LongArray, filterValue: String, filterValue2: String, scantype: Int, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun filtervalues(pid: Long, datatype: String, addressArray: LongArray, filterValue: String, filterValue2: String, scantype: Int, context: Context, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     val res: LongArray = it.ifiltervalues(pid, datatype, filterValue, filterValue2, scantype, addressArray)
@@ -86,8 +86,8 @@ class rwMem {
         }
     }
 
-    fun searchgroupvalues(pid: Long, datatype: String, searchValues: Array<String>, proxi: Long, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun searchgroupvalues(pid: Long, datatype: String, searchValues: Array<String>, proxi: Long, context: Context, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     val regions = RegionSelected()
@@ -104,8 +104,8 @@ class rwMem {
         }
     }
 
-    fun filtergroupvalues(pid: Long, datatype: String, addressArray: LongArray, filterValues: Array<String>, overlayContext: OverlayContext, onResult: (LongArray) -> Unit) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun filtergroupvalues(pid: Long, datatype: String, addressArray: LongArray, filterValues: Array<String>, context: Context, onResult: (LongArray) -> Unit) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     val res: LongArray = it.ifiltergroupvalues(pid, datatype, filterValues, addressArray)
@@ -121,8 +121,8 @@ class rwMem {
         }
     }
 
-    fun readmultiple(addresses: LongArray, pid: Long, datatype: String, overlayContext: OverlayContext, onResult: (Array<String>) -> Unit) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun readmultiple(addresses: LongArray, pid: Long, datatype: String, context: Context, onResult: (Array<String>) -> Unit) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     val res = it.ireadmultiple(addresses, pid, datatype)
@@ -138,8 +138,8 @@ class rwMem {
         }
     }
 
-    fun writemultiple(pid: Long, addresses: LongArray, datatype: String, value: String, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun writemultiple(pid: Long, addresses: LongArray, datatype: String, value: String, context: Context, onComplete: () -> Unit = {}) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     it.iwritemultiple(addresses, pid, datatype, value)
@@ -155,8 +155,8 @@ class rwMem {
         }
     }
 
-    fun freeze(pid: Long, addresses: LongArray, datatype: String, value: String, overlayContext: OverlayContext, onComplete: () -> Unit = {}) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun freeze(pid: Long, addresses: LongArray, datatype: String, value: String, context: Context, onComplete: () -> Unit = {}) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     it.istartFreezeExecution(addresses, pid, datatype, value)
@@ -172,8 +172,8 @@ class rwMem {
         }
     }
 
-    fun stopFreeze(overlayContext: OverlayContext) {
-        ensureHuntServiceConnected(overlayContext) {
+    fun stopFreeze(context: Context) {
+        ensureHuntServiceConnected(context) {
             huntService?.let {
                 try {
                     it.istopFreezeExecution()
