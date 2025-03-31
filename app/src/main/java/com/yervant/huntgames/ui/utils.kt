@@ -3,14 +3,12 @@ package com.yervant.huntgames.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 interface DialogCallback {
@@ -193,62 +191,6 @@ fun CustomOverlayAddressDialog(
 
                 Button(onClick = onDismiss) {
                     Text("Close")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CreateTable(
-    modifier: Modifier = Modifier,
-    colNames: List<String>,
-    colWeights: List<Float>,
-    itemCount: Int,
-    minEmptyItemCount: Int,
-    onRowClicked: (Int) -> Unit,
-    rowMinHeight: Dp,
-    drawCell: @Composable (rowIndex: Int, colIndex: Int) -> Unit
-) {
-    Column(modifier = modifier) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
-        ) {
-            colNames.forEachIndexed { index, name ->
-                Text(
-                    text = name,
-                    modifier = Modifier
-                        .weight(colWeights[index])
-                        .padding(4.dp)
-                )
-            }
-        }
-
-        // Table content
-        LazyColumn {
-            val totalItems = maxOf(itemCount, minEmptyItemCount)
-            items(totalItems) { rowIndex ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = rowMinHeight)
-                        .padding(8.dp)
-                        .clickable { onRowClicked(rowIndex) }
-                ) {
-                    colNames.indices.forEach { colIndex ->
-                        Box(
-                            modifier = Modifier
-                                .weight(colWeights[colIndex])
-                                .padding(4.dp)
-                        ) {
-                            if (rowIndex < itemCount) {
-                                drawCell(rowIndex, colIndex)
-                            }
-                        }
-                    }
                 }
             }
         }

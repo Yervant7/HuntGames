@@ -1,157 +1,173 @@
 package com.yervant.huntgames.ui.menu
 
-import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.yervant.huntgames.backend.LuaExecute
-import java.io.File
+import com.yervant.huntgames.backend.MemoryScanner.MemoryRegion
 
-private var regionsselected = ""
+private var regionsSelected: List<MemoryRegion> = listOf()
+private var customRegionFilter: String? = null
 
-fun RegionSelected(): String {
-    if (regionsselected == "") {
-        regionsselected = "C_ALLOC,C_BSS,C_DATA,C_HEAP,JAVA_HEAP,A_ANONYMOUS,STACK,ASHMEM"
-        return regionsselected
+fun getSelectedRegions(): List<MemoryRegion> {
+    return if (regionsSelected.isEmpty()) {
+        listOf(
+            MemoryRegion.ALLOC,
+            MemoryRegion.BSS,
+            MemoryRegion.DATA,
+            MemoryRegion.HEAP,
+            MemoryRegion.JAVA_HEAP,
+            MemoryRegion.ANONYMOUS,
+            MemoryRegion.STACK,
+            MemoryRegion.ASHMEM
+        )
     } else {
-        return regionsselected
+        regionsSelected
     }
 }
 
-fun setRegions(regions: String) {
-    regionsselected = regions
+fun setRegions(regions: List<MemoryRegion>, customFilter: String? = null) {
+    regionsSelected = regions
+    customRegionFilter = customFilter
 }
 
 @Composable
-fun SettingsMenu(context: Context?) {
+fun SettingsMenu() {
     val words = listOf(
-        "C_ALLOC",
-        "C_BSS",
-        "C_DATA",
-        "C_HEAP",
-        "JAVA_HEAP",
-        "A_ANONYMOUS",
-        "STACK",
-        "CODE_SYSTEM",
-        "ASHMEM",
+        MemoryRegion.ALLOC,
+        MemoryRegion.BSS,
+        MemoryRegion.DATA,
+        MemoryRegion.HEAP,
+        MemoryRegion.JAVA_HEAP,
+        MemoryRegion.ANONYMOUS,
+        MemoryRegion.STACK,
+        MemoryRegion.CODE_SYSTEM,
+        MemoryRegion.ASHMEM
     )
-    val selectedWords = remember { mutableStateListOf<String>() }
-    val files = LuaExecute().getLuaFiles()
-    val selectedFile = remember { mutableStateOf("") }
-    val executeLua = remember { mutableStateOf(false) }
-    val showDynamicInterface = remember { mutableStateOf(false) }
+    val selectedWords = remember { mutableStateListOf<MemoryRegion>() }
+    val customRegion = remember { mutableStateOf("") }
 
-    files.forEach { file ->
-        if (file.name == selectedFile.value) {
-            if (file.readText().contains("MenuManager")) {
-                showDynamicInterface.value = true
-            }
-        }
-    }
-
-    if (showDynamicInterface.value && executeLua.value && selectedFile.value.isNotEmpty()) {
-        val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().ExecuteLuaAndMenu(file, context!!)
-    } else if (executeLua.value && selectedFile.value.isNotEmpty()) {
-        val file = File("/data/data/com.yervant.huntgames/files/${selectedFile.value}")
-        LuaExecute().executelua(file, context!!)
-    } else {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopStart
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxSize()
         ) {
-            LazyColumn(
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
+                    .weight(1f)
+                    .padding(bottom = 16.dp)
             ) {
-                items(words) { word ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = selectedWords.contains(word),
-                            onCheckedChange = {
-                                if (it) {
-                                    selectedWords.add(word)
-                                } else {
-                                    selectedWords.remove(word)
-                                }
-                            }
-                        )
-                        Text(text = word, color = Color.White)
-                    }
-                }
-                item {
-                    Button(
-                        onClick = {
-                            val selectedWordsString = selectedWords.joinToString(separator = ",")
-                            regionsselected = selectedWordsString
-                        },
-                        modifier = Modifier
-                            .padding(16.dp)
-                    ) {
-                        Text("Save Regions")
-                    }
-                }
-            }
-        }
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopEnd
-        ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .padding(16.dp)
-            ) {
-                items(files) { file ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(
-                            checked = selectedFile.value == file.name,
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    selectedFile.value = file.name
-                                } else if (selectedFile.value == file.name) {
-                                    selectedFile.value = ""
-                                }
-                            }
-                        )
-                        Text(text = file.name, color = Color.White)
-                    }
-                }
-            }
-
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomEnd
-            ) {
-                Button(
-                    onClick = {
-                        executeLua.value = true
-                    },
+                Column(
                     modifier = Modifier
                         .padding(16.dp)
+                        .fillMaxSize()
                 ) {
-                    Text("Execute Lua")
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                    ) {
+                        items(words) { region ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (selectedWords.contains(region)) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = selectedWords.contains(region),
+                                        onCheckedChange = { checked ->
+                                            if (checked) selectedWords.add(region)
+                                            else selectedWords.remove(region)
+                                        },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                    Text(
+                                        text = region.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = customRegion.value,
+                            onValueChange = { customRegion.value = it },
+                            label = { Text("Custom Region Filter") },
+                            placeholder = { Text("Example: libunity.so") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 56.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+
+                        Button(
+                            onClick = {
+                                if (customRegion.value.isNotBlank()) {
+                                    setRegions(listOf(MemoryRegion.CUSTOM), customRegion.value)
+                                } else {
+                                    setRegions(selectedWords.toList())
+                                }
+                            },
+                            modifier = Modifier
+                                .height(56.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text("Save")
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-@Preview
-fun SettingsMenuPreview() {
-    SettingsMenu(null)
 }

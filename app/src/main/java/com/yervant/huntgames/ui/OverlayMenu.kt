@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
 import android.view.MotionEvent
@@ -26,7 +25,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -106,9 +104,7 @@ class CustomOverlayView(context: android.content.Context) : View(context) {
                         performClick()
                     }
                 }
-                (context as? OverlayService)?.let { service ->
-                    service.updateLastKnownPosition(params.x, params.y)
-                }
+                (context as? OverlayService)?.updateLastKnownPosition(params.x, params.y)
                 return true
             }
         }
@@ -134,6 +130,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
     private val NOTIFICATION_CHANNEL_ID = "overlay_channel"
     private val NOTIFICATION_ID = 1
     var isDialogVisible = false
+    private var selectedTabIndex = 0
     lateinit var dialogView: ComposeView
 
     var lastKnownX: Int = 0
@@ -322,19 +319,17 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                NOTIFICATION_CHANNEL_ID,
-                "Overlay Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Notification for overlay service"
-                setShowBadge(false)
-            }
-
-            val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            NOTIFICATION_CHANNEL_ID,
+            "Overlay Service",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Notification for overlay service"
+            setShowBadge(false)
         }
+
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun createNotification(): Notification {
@@ -346,11 +341,8 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
                 )
             }
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val builder =
             NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-        } else {
-            NotificationCompat.Builder(this)
-        }
 
         return builder
             .setContentTitle("Overlay Service")
@@ -364,7 +356,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
 
     @Composable
     private fun MenuContent(onClose: () -> Unit) {
-        var selectedTab by remember { mutableStateOf(0) }
+        var selectedTab by remember { mutableIntStateOf(selectedTabIndex) }
         val tabs = listOf("Processes", "Memory", "Editor", "Settings")
 
         Box(
@@ -377,42 +369,48 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Hunt Games",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        contentColor = Color.White,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            val isSelected = selectedTab == index
+                            Tab(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedTab = index
+                                    selectedTabIndex = index
+                                },
+                                modifier = Modifier
+                                    .weight(if (isSelected) 2f else 1f)
+                            ) {
+                                Text(
+                                    text = if (isSelected) title else title.first().toString(),
+                                    fontSize = if (isSelected) 16.sp else 12.sp,
+                                    maxLines = 1,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
+                                )
+                            }
+                        }
+                    }
 
                     IconButton(
-                        onClick = onClose,
+                        onClick = {
+                            selectedTabIndex = selectedTab
+                            onClose()
+                        },
                         modifier = Modifier
                             .size(48.dp)
                             .background(Color.Red.copy(alpha = 0.2f), CircleShape)
                     ) {
                         Text("×", color = Color.White, fontSize = 24.sp)
-                    }
-                }
-
-                // Tabs
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    contentColor = Color.White
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            text = { Text(title) }
-                        )
                     }
                 }
 
@@ -427,7 +425,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
                         0 -> ProcessMenu(dialogCallback = this@OverlayService)
                         1 -> InitialMemoryMenu(this@OverlayService, dialogCallback = this@OverlayService)
                         2 -> AddressTableMenu(this@OverlayService, dialogCallback = this@OverlayService)
-                        3 -> SettingsMenu(this@OverlayService)
+                        3 -> SettingsMenu()
                     }
                 }
             }

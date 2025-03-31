@@ -4,12 +4,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yervant.huntgames.R
 import com.yervant.huntgames.backend.Process
@@ -24,26 +26,32 @@ import kotlin.time.Duration.Companion.seconds
 
 private var attachedStatusString: MutableState<String> = mutableStateOf("None")
 private var success: Boolean = false
-private var svpid: Long = -1L
+private var svpid: Int = -1
+private var lastpid: Int = -1
 
 class isattached {
     fun alert(): Boolean {
         return success
     }
-    fun savepid(): Long {
-        return if (svpid != -1L) svpid else -1
+    fun currentPid(): Int {
+        return svpid
     }
     fun reset() {
-        svpid = -1L
+        svpid = -1
         success = false
+    }
+    fun resetLast() {
+        lastpid = -1
+    }
+    fun lastPid(): Int {
+        return lastpid
     }
 }
 
 fun AttachToProcess(
-    pid: Long,
+    pid: Int,
     onProcessNoExistAnymore: () -> Unit,
     onAttachSuccess: () -> Unit,
-    onAttachFailure: (msg: String) -> Unit,
 ) {
     if (Process().processIsRunning(pid.toString())) {
         success = true
@@ -81,7 +89,7 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
         else currentProcList.filter { it.packageName.contains(searchQuery.value, ignoreCase = true) }
     }
 
-    _ProcessMenu(
+    ProcessMenuContent(
         runningProcState = filteredProcList,
         searchQuery = searchQuery,
         onAttach = { pid, procName, memory ->
@@ -90,7 +98,7 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
                 message = "Attach to $pid - $procName?",
                 onConfirm = {
                     AttachToProcess(
-                        pid = pid.toLong(),
+                        pid = pid.toInt(),
                         onAttachSuccess = {
                             dialogCallback.showInfoDialog(
                                 title = "Hunt Games",
@@ -99,7 +107,10 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
                                 onDismiss = {}
                             )
                             attachedStatusString.value = "$pid - $procName"
-                            svpid = pid.toLong()
+                            if (svpid != -1) {
+                                lastpid = svpid
+                            }
+                            svpid = pid.toInt()
                         },
                         onProcessNoExistAnymore = {
                             dialogCallback.showInfoDialog(
@@ -109,14 +120,6 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
                                 onDismiss = {}
                             )
                         },
-                        onAttachFailure = { msg ->
-                            dialogCallback.showInfoDialog(
-                                title = "Hunt Games",
-                                message = msg,
-                                onConfirm = {},
-                                onDismiss = {}
-                            )
-                        }
                     )
                 },
                 onDismiss = {}
@@ -127,40 +130,148 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
 }
 
 @Composable
-private fun _ProcessMenu(
+private fun ProcessMenuContent(
     runningProcState: List<ProcessInfo>,
     searchQuery: MutableState<String>,
     onRefreshClicked: () -> Unit,
     onAttach: (pid: String, procName: String, memory: String) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            TextField(
-                value = searchQuery.value,
-                onValueChange = { searchQuery.value = it },
-                label = { Text("Search by package name", color = Color.White) },
-                modifier = Modifier.weight(1f).padding(end = 8.dp)
-            )
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            SearchAndRefreshRow(searchQuery, onRefreshClicked)
 
-            Button(onClick = onRefreshClicked) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_refresh),
-                    contentDescription = "Refresh"
+            if (runningProcState.isEmpty()) {
+                EmptyStateMessage()
+            } else {
+                ProcessList(runningProcState, onAttach)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchAndRefreshRow(
+    searchQuery: MutableState<String>,
+    onRefreshClicked: () -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            modifier = Modifier
+                .weight(1f)
+                .padding(end = 8.dp),
+            value = searchQuery.value,
+            onValueChange = { searchQuery.value = it },
+            label = { Text("Search processes") },
+            leadingIcon = {
+                Icons.Filled.Search
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            )
+        )
+
+        IconButton(
+            onClick = onRefreshClicked,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_refresh),
+                contentDescription = "Refresh",
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProcessList(
+    processes: List<ProcessInfo>,
+    onAttach: (String, String, String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        itemsIndexed(processes) { index, process ->
+            ProcessListItem(
+                process = process,
+                onAttach = onAttach,
+                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+            )
+            if (index < processes.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 16.dp),
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
             }
         }
+    }
+}
 
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
-            itemsIndexed(runningProcState) { index, process ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {onAttach(process.pid, process.packageName, process.memory)},
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(text = process.pid, modifier = Modifier.weight(0.2f), color = Color.White)
-                    Text(text = process.packageName, modifier = Modifier.weight(0.5f), color = Color.White)
-                    Text(text = "${process.memory.toLong() / 1024} MB", modifier = Modifier.weight(0.3f), color = Color.White)
-                }
+@Composable
+private fun ProcessListItem(
+    process: ProcessInfo,
+    onAttach: (String, String, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val formattedMemory = remember(process.memory) {
+        "%.2f MB".format(process.memory.toLong() / 1024.0)
+    }
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onAttach(process.pid, process.packageName, process.memory) },
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(0.4f)) {
+                Text(
+                    text = process.packageName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "PID: ${process.pid}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
             }
+
+            Text(
+                text = formattedMemory,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(0.2f)
+            )
         }
+    }
+}
+
+@Composable
+private fun EmptyStateMessage() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "No processes found",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+        )
     }
 }

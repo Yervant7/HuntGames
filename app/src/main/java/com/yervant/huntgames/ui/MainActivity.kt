@@ -18,21 +18,20 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.activity.compose.setContent
 import com.yervant.huntgames.ui.theme.HuntGamesTheme
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import androidx.core.net.toUri
+import java.io.IOException
 
 
 class MainActivity : ComponentActivity() {
 
-    private val getContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { handleFileImport(it) }
+    private val getContentBoot = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { handleBootImport(it) }
     }
 
     private lateinit var overlayPermissionLauncher: ActivityResultLauncher<Intent>
@@ -53,16 +52,39 @@ class MainActivity : ComponentActivity() {
             requestNotificationPermission()
         }
 
-        if (!suCheck() || !modulecheck()) {
-            Toast.makeText(this, "ERROR Root access or Module missing", Toast.LENGTH_SHORT).show()
+        if (!suCheck()) {
+            Toast.makeText(this, "ERROR Root access missing", Toast.LENGTH_SHORT).show()
             finish()
             return
+        }
+        val dir = File(filesDir, "patch")
+        if (dir.isDirectory) {
+            executeSuCommand("rm -rf ${dir.absolutePath}/*")
+        } else {
+            dir.mkdirs()
+        }
+
+        val file = File(filesDir, "patch/magiskboot")
+        if (!file.exists()) {
+            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "magiskboot", "patch/magiskboot")
+        }
+        val f = file.absolutePath
+        executeSuCommand("chmod +x $f")
+        val fil = File(filesDir, "patch/kptools")
+        if (!fil.exists()) {
+            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kptools-android", "patch/kptools")
+        }
+        val fi = fil.absolutePath
+        executeSuCommand("chmod +x $fi")
+        val afil = File(filesDir, "patch/kpimg")
+        if (!afil.exists()) {
+            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kpimg", "patch/kpimg")
         }
 
         if (!Settings.canDrawOverlays(this)) {
             val intent = Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
+                "package:$packageName".toUri()
             )
             overlayPermissionLauncher.launch(intent)
         } else {
@@ -77,7 +99,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen({ getContent.launch("*/*") })
+                    MainScreen(
+                        openBootPicker = { getContentBoot.launch("*/*") }
+                    )
                 }
             }
         }
@@ -107,22 +131,6 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
-    private fun modulecheck(): Boolean {
-        val output = executeSuCommand("ls /dev/rwMem")
-        if (output.isEmpty()) {
-            return false
-        } else {
-            for (line in output) {
-                if (line.startsWith("ls: /dev/rwMem:")) {
-                    return false
-                } else if (line.startsWith("/dev/rwMem")) {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
     private fun executeSuCommand(command: String): List<String> {
         val output = mutableListOf<String>()
         try {
@@ -139,20 +147,23 @@ class MainActivity : ComponentActivity() {
         return output
     }
 
-    private fun handleFileImport(uri: Uri) {
+    private fun handleBootImport(uri: Uri) {
         val fileName = getFileName(uri)
-        if (fileName.endsWith(".lua")) {
+        if (fileName.endsWith(".img")) {
             val inputStream: InputStream? = contentResolver.openInputStream(uri)
             inputStream?.let {
-                val file = File(filesDir, fileName)
+                val file = File(filesDir, "patch/boot.img")
+                if (file.exists()) {
+                    file.delete()
+                }
                 val outputStream = FileOutputStream(file)
                 it.copyTo(outputStream)
                 outputStream.close()
                 it.close()
             }
         } else {
-            Toast.makeText(this@MainActivity, "Only import files .lua", Toast.LENGTH_SHORT).show()
-            throw Exception("not a lua file")
+            Toast.makeText(this@MainActivity, "Only import files .img", Toast.LENGTH_SHORT).show()
+            throw Exception("not a img file")
         }
     }
 
@@ -168,18 +179,19 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+class copyfile {
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HuntGamesTheme {
-        Greeting("Android")
+    object FileUtil {
+
+        @Throws(IOException::class)
+        fun copyAssetFileToInternalStorage(context: Context, assetFileName: String, internalFilePath: String) {
+            context.assets.open(assetFileName).use { inputStream ->
+                val internalFile = File(context.filesDir, internalFilePath)
+                internalFile.parentFile?.mkdirs()
+                FileOutputStream(internalFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+        }
     }
 }

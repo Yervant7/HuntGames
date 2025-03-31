@@ -1,55 +1,45 @@
 # HuntGames
 
-HuntGames is an open-source project aimed at providing tools for game hunting and analysis on ARM64 devices. This project uses the kernel for Read and Write memory
-
-## Features
-
-- Lua scripts (see example.lua or LuaExecute.kt for reference)
-- Search values in memory of process.
-- Write values in memory of process.
+HuntGames is an Android memory editor and analysis on ARM64 devices. This project uses the kernel for Read and Write memory
 
 ## Requirements
 
+- Android 10+
 - ARM64 device
 - Root access
-- Compiled kernel module (refer to the [rwMem repository](https://github.com/Yervant7/rwMem))
 - Unlocked bootloader
+- Kernel configs: CONFIG_KALLSYMS=y and CONFIG_KALLSYMS_ALL=y
 
 ## Installation
 
-1. Download apk in the releases section
+### Patching Boot
+#### Compatible with any root method
 
-2. Compile the necessary kernel module from the [rwMem repository](https://github.com/Yervant7/rwMem):
-    Instructions in the repository see too [Kernel_Action repository](https://github.com/Yervant7/Kernel_Action)
- 
-3. Load the compiled module:
-    ```bash
-    su -c insmod rwmem.ko
-    ```
+1. Download apk in the releases section.
+2. Open HuntGames, go to Patch Boot tab (recommended to set key in home/settings tab)
+3. click on select boot img, select file and start patching.
+4. flash the "patched_boot.img" of your downloads folder (If it doesn't exist, check the installation logs and check if your kernel is compatible.)
+5. reboot and enjoy.
 
-## Usage
+### Using APatch KPM
 
-To start using HuntGames, ensure that you have met all the requirements and loaded the kernel module. Follow the instructions to enable the global namespace in your root implementation.
+1. Download apk and kpm in the releases section.
+2. load kpm in APatch (It is recommended to configure your key in the APatch app kpm control, just enter your key as argument.)
+3. Open HuntGames (If you configured your key in kpm control, configure the same key in HuntGames)
+4. start and enjoy.
 
 ## Community and Support
 
 For discussions and support, join our Telegram group: [HuntGames Telegram Group](https://t.me/huntgames7).
 
-Watch the [demo video](https://youtu.be/hMQYwH0Hmcs?si=OB-4-XjnJ-mDBt1z) to see HuntGames in action.
-
 ## Contributing
 
 We welcome contributions! Please fork the repository, create a feature branch, and submit a pull request. Ensure your code adheres to the project's coding standards and passes all tests.
 
-## Acknowledgments
+## Credits for patch in kernel and kpm
 
-- Inspiration and Source of Kernel Module from the
-abcz316: https://github.com/abcz316
-- and
-ri-char: https://github.com/ri-char
-
-- some references in ui
-KuhakuPixel: https://github.com/KuhakuPixel
+[bmax121](https://github.com/bmax121)
+[KernelPatch](https://github.com/bmax121/KernelPatch) and its contributors
 
 ---
 

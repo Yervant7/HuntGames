@@ -3,29 +3,14 @@ package com.yervant.huntgames.backend
 import android.content.Context
 import android.util.Log
 import com.yervant.huntgames.ui.menu.MatchInfo
+import com.yervant.huntgames.ui.menu.getCurrentScanOption
+import com.yervant.huntgames.ui.menu.getSelectedRegions
 import com.yervant.huntgames.ui.menu.getscantype
 import com.yervant.huntgames.ui.menu.isattached
-import com.yervant.huntgames.ui.menu.valtypeselected
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class Memory {
-
-    enum class NumType {
-        _int, _long, _float, _double;
-
-
-        @Override
-        override fun toString(): String {
-            return this.name.replace("_", "")
-        }
-
-        companion object {
-            fun fromString(s: String): NumType {
-                var s = s
-                if (s[0] != '_') s = "_$s"
-                return valueOf(s)
-            }
-        }
-    }
 
     fun listMatches(maxCount: Int): List<MatchInfo> {
         return if (maxCount > 0 && matches.size > maxCount) {
@@ -35,124 +20,115 @@ class Memory {
         }
     }
 
-    suspend fun getValues(addresses: LongArray, context: Context): List<Any> {
-        val pid = isattached().savepid()
-        val hunt = HuntingMemory()
-        val valuesArray = hunt.readmem(pid, addresses, valtypeselected, context).asList()
-        return valuesArray
+    suspend fun readMemory(pid: Int, addr: Long, datatype: String, context: Context): String {
+
+        return when (datatype.lowercase()) {
+            "int" -> {
+                val readValue = HGMem().readMem(pid, addr, 4, context).getOrElse { null }
+                if (readValue == null) {
+                    ""
+                } else {
+                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).int.toString()
+                }
+            }
+            "long" -> {
+                val readValue = HGMem().readMem(pid, addr, 8, context).getOrElse { null }
+                if (readValue == null) {
+                    ""
+                } else {
+                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).long.toString()
+                }
+            }
+            "float" -> {
+                val readValue = HGMem().readMem(pid, addr, 4, context).getOrElse { null }
+                if (readValue == null) {
+                    ""
+                } else {
+                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).float.toString()
+                }
+            }
+            "double" -> {
+                val readValue = HGMem().readMem(pid, addr, 8, context).getOrElse { null }
+                if (readValue == null) {
+                    ""
+                } else {
+                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).double.toString()
+                }
+            }
+            else -> throw IllegalArgumentException("Unsupported data type: $datatype")
+        }
     }
 
-    suspend fun gotoAddress(address: String, context: Context) {
-        val pid = isattached().savepid()
-        val hunt = HuntingMemory()
+    suspend fun getValues(matchs: List<MatchInfo>, context: Context): List<MatchInfo> {
+        val pid = isattached().currentPid()
+        val newMatchs: MutableList<MatchInfo> = mutableListOf()
 
-        val cleanedAddr = if (address.startsWith("0x")) {
-            address.removePrefix("0x")
-        } else {
-            address
+        matchs.forEach { match ->
+            val value = readMemory(pid, match.address, match.valuetype, context)
+            newMatchs.add(MatchInfo(match.address, value, match.valuetype))
         }
 
-        val addrs = longArrayOf(cleanedAddr.toLong(16))
-
-        val value = hunt.readmem(pid, addrs, valtypeselected, context)
-
-        val values: MutableList<MatchInfo> = mutableListOf()
-        values.add(MatchInfo(cleanedAddr.toLong(16), value[0], valtypeselected))
-        matches.clear()
-        if (values.isNotEmpty()) {
-            matches.addAll(values)
-        } else {
-            Log.d("Memory", "No results to write")
-        }
+        return newMatchs
     }
 
-    suspend fun gotoAddressAndOffset(addr: String, offset: String, issub: Boolean, context: Context) {
-        val pid = isattached().savepid()
-        val hunt = HuntingMemory()
-
-        val cleanedAddr = if (addr.startsWith("0x")) {
-            addr.removePrefix("0x")
-        } else {
-            addr
-        }
-        val offset_f = if (offset.startsWith("0x")) {
-            offset.removePrefix("0x")
-        } else {
-            offset
-        }
-
-        val address = if (issub) {
-            cleanedAddr.toLong(16) - offset_f.toLong(16)
-        } else {
-            cleanedAddr.toLong(16) + offset_f.toLong(16)
-        }
-
-        val addrs = longArrayOf(address)
-
-        val valuestr = hunt.readmem(pid, addrs, valtypeselected, context)
-
-        val values: MutableList<MatchInfo> = mutableListOf()
-        values.add(MatchInfo(address, valuestr[0], valtypeselected))
-        matches.clear()
-        if (values.isNotEmpty()) {
-            matches.addAll(values)
-        } else {
-            Log.d("Memory", "No results to write")
-        }
-
-    }
-
-    suspend fun scanAgainstValue(numValStr: String, currentmatcheslist: List<MatchInfo>, context: Context) {
+    suspend fun scanAgainstValue(numValStr: String, context: Context) {
         try {
-            val pid = isattached().savepid()
-            val hunt = HuntingMemory()
+            val pid = isattached().currentPid()
             val results: MutableList<MatchInfo> = mutableListOf()
             val scantype = getscantype()
 
-            if (scantype == 3 || scantype == 4) {
-                if (scantype == 3) {
-                    val targetlist: MutableList<Long> = mutableListOf()
-                    var i = 0
-                    while (i < currentmatcheslist.size) {
-                        targetlist.add(currentmatcheslist[i].address)
-                        i++
-                    }
-                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, context)
-                    when (valtypeselected) {
-                        "int" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toInt() != valuesstr[j].toInt()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+            if (scantype == 1 || scantype == 2) {
+                if (scantype == 1) {
+                    matches.forEach { match ->
+                        val valuestr =
+                            readMemory(pid, match.address, match.valuetype, context)
+                        when (match.valuetype) {
+                            "int" -> {
+                                if (match.prevValue.toInt() != valuestr.toInt()) {
+                                    results.add(
+                                        MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "long" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toLong() != valuesstr[j].toLong()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "long" -> {
+                                if (match.prevValue.toLong() != valuestr.toLong()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "float" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toFloat() != valuesstr[j].toFloat()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "float" -> {
+                                if (match.prevValue.toFloat() != valuestr.toFloat()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "double" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toDouble() != valuesstr[j].toDouble()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "double" -> {
+                                if (match.prevValue.toFloat() != valuestr.toFloat()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
                         }
                     }
@@ -163,48 +139,56 @@ class Memory {
                         Log.d("Memory", "No results to write")
                     }
                 } else {
-                    val targetlist: MutableList<Long> = mutableListOf()
-                    var i = 0
-                    while (i < currentmatcheslist.size) {
-                        targetlist.add(currentmatcheslist[i].address)
-                        i++
-                    }
-                    val valuesstr = hunt.readmem(pid, targetlist.toLongArray(), valtypeselected, context)
-                    when (valtypeselected) {
-                        "int" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toInt() == valuesstr[j].toInt()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+                    matches.forEach { match ->
+                        val valuestr =
+                            readMemory(pid, match.address, match.valuetype, context)
+                        when (match.valuetype) {
+                            "int" -> {
+                                if (match.prevValue.toInt() == valuestr.toInt()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "long" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toLong() == valuesstr[j].toLong()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "long" -> {
+                                if (match.prevValue.toLong() == valuestr.toLong()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "float" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toFloat() == valuesstr[j].toFloat()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "float" -> {
+                                if (match.prevValue.toFloat() == valuestr.toFloat()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
-                        }
-                        "double" -> {
-                            var j = 0
-                            while (j < targetlist.size && j < valuesstr.size) {
-                                if (currentmatcheslist[j].prevValue.toDouble() == valuesstr[j].toDouble()) {
-                                    results.add(MatchInfo(targetlist[j], valuesstr[j], valtypeselected))
+
+                            "double" -> {
+                                if (match.prevValue.toDouble() == valuestr.toDouble()) {
+                                    results.add(
+                                        MatchInfo(
+                                            match.address,
+                                            valuestr,
+                                            match.valuetype
+                                        )
+                                    )
                                 }
-                                j++
                             }
                         }
                     }
@@ -216,94 +200,52 @@ class Memory {
                     }
                 }
             } else {
+                if (matches.isEmpty()) {
 
-                val value = if (numValStr.contains("..")) {
-                    numValStr.split("..")
-                } else {
-                    listOf(numValStr, "0")
-                }
+                    val scanOptions = getCurrentScanOption()
+                    val regions = getSelectedRegions()
+                    val res = when (scanOptions.valueType.lowercase()) {
+                        "int" -> {
+                            MemoryScanner(pid).searchInt(
+                                numValStr.toInt(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                            )
+                        }
 
-                if (numValStr.contains(";") && numValStr.contains(":")) {
-                    val splited = numValStr.split(":")
-                    val distance = splited[1].toLong()
-                    val values = splited[0].split(";")
-                    val valuesarray = values.toTypedArray()
-                    if (matches.isEmpty()) {
-                        val addresses = hunt.searchmemgroup(
-                            pid,
-                            valtypeselected,
-                            valuesarray,
-                            distance,
-                            context
-                        )
-                        val vvalues = hunt.readmem(pid, addresses, valtypeselected, context)
-                        var i = 0
-                        while (i < addresses.size && i < values.size) {
-                            results.add(MatchInfo(addresses[i], vvalues[i], valtypeselected))
-                            i++
+                        "long" -> {
+                            MemoryScanner(pid).searchLong(
+                                numValStr.toLong(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                            )
                         }
-                    } else {
-                        val addrs = hunt.filtermemgroup(
-                            pid,
-                            valtypeselected,
-                            valuesarray,
-                            currentmatcheslist,
-                            context
-                        )
-                        val vvalues = hunt.readmem(pid, addrs, valtypeselected, context)
-                        var i = 0
-                        while (i < addrs.size && i < values.size) {
-                            results.add(MatchInfo(addrs[i], vvalues[i], valtypeselected))
-                            i++
+
+                        "float" -> {
+                            MemoryScanner(pid).searchFloat(
+                                numValStr.toFloat(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                            )
                         }
+
+                        "double" -> {
+                            MemoryScanner(pid).searchDouble(
+                                numValStr.toDouble(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                            )
+                        }
+                        else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
                     }
+                    results.addAll(res)
                 } else {
-                    if (matches.isEmpty()) {
-                        val addresses = hunt.searchmem(
-                            pid,
-                            valtypeselected,
-                            value[0],
-                            value[1],
-                            scantype,
-                            context
-                        )
-                        val valuesArray =
-                            hunt.readmem(pid, addresses, valtypeselected, context)
-                        var i = 0
-                        while (i < addresses.size && i < valuesArray.size) {
-                            results.add(
-                                MatchInfo(
-                                    addresses[i],
-                                    valuesArray[i],
-                                    valtypeselected
-                                )
-                            )
-                            i++
-                        }
-                    } else {
-                        val addresses = hunt.filtermem(
-                            pid,
-                            valtypeselected,
-                            value[0],
-                            value[1],
-                            scantype,
-                            currentmatcheslist,
-                            context
-                        )
-                        val valuesArray =
-                            hunt.readmem(pid, addresses, valtypeselected, context)
-                        var i = 0
-                        while (i < addresses.size && i < valuesArray.size) {
-                            results.add(
-                                MatchInfo(
-                                    addresses[i],
-                                    valuesArray[i],
-                                    valtypeselected
-                                )
-                            )
-                            i++
-                        }
-                    }
+                    val matchs = MemoryScanner(pid).filterAddressesAuto(matches, numValStr, context)
+                    results.addAll(matchs)
                 }
                 matches.clear()
                 if (results.isNotEmpty()) {

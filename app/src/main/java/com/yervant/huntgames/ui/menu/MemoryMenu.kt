@@ -2,8 +2,10 @@ package com.yervant.huntgames.ui.menu
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,17 +13,30 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -33,11 +48,14 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yervant.huntgames.backend.Memory.NumType
+import androidx.compose.ui.unit.sp
 import com.yervant.huntgames.backend.HuntSettings
 import com.yervant.huntgames.backend.Memory
 import kotlinx.coroutines.CoroutineScope
@@ -73,31 +91,19 @@ private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches"
 data class MatchInfo(val address: Long, val prevValue: String, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
-
     return ScanOptions(
         inputVal = scanInputVal.value,
-        numType = NumType.values()[valueTypeSelectedOptionIdx.value],
-        initialScanDone = initialScanDone.value,
+        valueType = valuestype[valueTypeSelectedOptionIdx.value]
     )
 }
 
 @Composable
 fun InitialMemoryMenu(context: Context?, dialogCallback: DialogCallback) {
-    val currentaddressList = matches
 
-    LaunchedEffect(Unit) {
-        if (currentaddressList.isEmpty()) {
-            println("No need to refresh")
-        } else {
-            while (isActive) {
-                if (currentaddressList.isEmpty()) {
-                    println("No need to refresh")
-                } else {
-                    refreshValues(context!!, dialogCallback)
-                    delay(50.seconds)
-                }
-                delay(10.seconds)
-            }
+    LaunchedEffect(matches.isNotEmpty()) {
+        while (isActive) {
+            refreshValues(context!!, dialogCallback)
+            delay(10.seconds)
         }
     }
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
@@ -120,7 +126,8 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
         matches.take(1000)
     }
 
-    val pid = isattached().savepid()
+    val pid = isattached().currentPid()
+    val lastPid = isattached().lastPid()
 
     if (pid < 0) {
         dialogCallback.showInfoDialog(
@@ -139,18 +146,33 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
             onConfirm = {},
             onDismiss = {}
         )
+        resetMatches()
+        updateMatches()
         isattached().reset()
+        isattached().resetLast()
         return
     }
 
-    val addresses = firstThousand.map { it.address }.toLongArray()
-    val values = mem.getValues(addresses, context)
+    if (lastPid != -1 && lastPid != pid) {
+        dialogCallback.showInfoDialog(
+            title = "Info",
+            message = "Process changed cleaning...",
+            onConfirm = {},
+            onDismiss = {}
+        )
+        resetMatches()
+        updateMatches()
+        isattached().resetLast()
+        return
+    }
 
-    val updatedMatches = addresses.zip(values).mapIndexed { index, (address, value) ->
+    val values = mem.getValues(firstThousand, context)
+
+    val updatedMatches = values.map { value ->
         MatchInfo(
-            address = address,
-            prevValue = value.toString(),
-            valuetype = firstThousand[index].valuetype
+            address = value.address,
+            prevValue = value.prevValue,
+            valuetype = value.valuetype
         )
     }
 
@@ -165,7 +187,6 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
     updateMatches()
 }
 
-var valtypeselected: String = "int"
 var valuestype: List<String> = listOf("int", "long", "float", "double")
 
 fun getscantype(): Int {
@@ -182,6 +203,7 @@ fun MemoryMenu(
 
     if (!defaultValueInitialized) {
         scanTypeSelectedOptionIdx.value = 0
+        valueTypeSelectedOptionIdx.value = 0
         defaultValueInitialized = true
     }
     val isAttached: Boolean = isattached().alert()
@@ -237,7 +259,6 @@ fun MemoryMenu(
                     coroutineScope.launch {
                         onNextScanClicked(
                             scanOptions = getCurrentScanOption(),
-                            currentmatcheslist = currentMatchesList.value,
                             onBeforeScanStart = {
                                 isScanOnGoing.value = true
                             },
@@ -260,6 +281,7 @@ fun MemoryMenu(
                     updateMatches()
                     initialScanDone.value = false
                 },
+                isScanOnGoing = isScanOnGoing
             )
         }
 
@@ -269,10 +291,10 @@ fun MemoryMenu(
             modifier = Modifier.fillMaxSize(),
         ) {
             content(
-                matchesTableModifier = Modifier
+                Modifier
                     .weight(0.6f)
                     .padding(16.dp),
-                matchesSettingModifier = Modifier
+                Modifier
                     .weight(0.4f)
                     .padding(10.dp),
             )
@@ -283,10 +305,10 @@ fun MemoryMenu(
             modifier = Modifier.fillMaxSize(),
         ) {
             content(
-                matchesTableModifier = Modifier
+                Modifier
                     .weight(0.6f)
                     .padding(16.dp),
-                matchesSettingModifier = Modifier
+                Modifier
                     .weight(0.4f)
                     .fillMaxSize()
             )
@@ -307,35 +329,111 @@ private fun MatchesTable(
     modifier: Modifier = Modifier,
     matches: List<MatchInfo>,
     matchesStatusText: String,
-    onMatchClicked: (matchInfo: MatchInfo) -> Unit,
+    onMatchClicked: (MatchInfo) -> Unit,
     onCopyAllMatchesToAddressTable: () -> Unit
 ) {
-
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(), Arrangement.SpaceBetween
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(matchesStatusText, color = Color.White)
-
-            Button(onClick = onCopyAllMatchesToAddressTable) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
-                    "Copy all matches to address table",
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = matchesStatusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+
+                Button(
+                    onClick = onCopyAllMatchesToAddressTable,
+                    modifier = Modifier.height(36.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Copy All", fontSize = 14.sp)
+                }
+            }
+
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(matches) { match ->
+                    MatchItem(match, onMatchClicked)
+                }
             }
         }
-        LazyColumn {
-            items(matches.size) { index ->
-                val match = matches[index]
-                Column(
+    }
+}
+
+@Composable
+private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(match) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = "0x${match.address.toString(16).uppercase()}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Value: ${match.prevValue}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = match.valuetype.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
-                        .padding(4.dp)
-                        .clickable { onMatchClicked(match) }
-                ) {
-                    Text(text = "Address: ${match.address}", color = Color.White)
-                    Text(text = "PrevValue: ${match.prevValue}", color = Color.White)
-                    Text(text = "Type: ${match.valuetype}", color = Color.White)
-                }
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
         }
     }
@@ -346,8 +444,7 @@ fun updateMatches() {
     val matchesCount: Int = matches.size
     val shownMatchesCount: Int = min(matchesCount, HuntSettings.maxShownMatchesCount)
     // update ui
-    currentMatchesList.value = emptyList()
-    currentMatchesList.value = mem.listMatches(HuntSettings.maxShownMatchesCount)
+    currentMatchesList.value = mem.listMatches(shownMatchesCount)
     matchesStatusText.value = "$matchesCount matches (showing ${shownMatchesCount})"
 }
 
@@ -359,100 +456,169 @@ private fun MatchesSetting(
     nextScanEnabled: Boolean,
     nextScanClicked: () -> Unit,
     newScanEnabled: Boolean,
-    newScanClicked: () -> Unit
+    newScanClicked: () -> Unit,
+    isScanOnGoing: MutableState<Boolean>
 ) {
-    val scrollState = rememberScrollState()
-    val isScanTypeMenuExpanded = remember { mutableStateOf(false) }
-    val isValueTypeMenuExpanded = remember { mutableStateOf(false) }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    Card(
+        modifier = modifier,
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        // Campo de entrada
-        OutlinedTextField(
-            value = scanInputVal.value,
-            onValueChange = { scanInputVal.value = it },
-            label = { Text("Scan For", color = Color.White) },
-            placeholder = { Text("Enter value...", color = Color.Gray) },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Button(
-            onClick = { isScanTypeMenuExpanded.value = true },
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Scan Type: ${scanTypeOptions[scanTypeSelectedOptionIdx.value]}")
-        }
+            Text(
+                text = "Scan Settings",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-        DropdownMenu(
-            expanded = isScanTypeMenuExpanded.value,
-            onDismissRequest = { isScanTypeMenuExpanded.value = false }
-        ) {
-            scanTypeOptions.forEachIndexed { index, label ->
-                DropdownMenuItem(
-                    onClick = {
-                        scanTypeSelectedOptionIdx.value = index
-                        isScanTypeMenuExpanded.value = false
-                    },
-                    text = { Text(label, color = Color.White) }
+            OutlinedTextField(
+                value = scanInputVal.value,
+                onValueChange = { scanInputVal.value = it },
+                label = { Text("Scan Value") },
+                placeholder = { Text("Enter target value...") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
                 )
-            }
-        }
+            )
 
-        Button(
-            onClick = { isValueTypeMenuExpanded.value = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Value Type: $valtypeselected")
-        }
+            CustomDropdown(
+                label = "Scan Type",
+                options = scanTypeOptions,
+                selectedIndex = scanTypeSelectedOptionIdx.value,
+                onOptionSelected = { scanTypeSelectedOptionIdx.value = it },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        DropdownMenu(
-            expanded = isValueTypeMenuExpanded.value,
-            onDismissRequest = { isValueTypeMenuExpanded.value = false }
-        ) {
-            valuestype.forEach { label ->
-                DropdownMenuItem(
-                    onClick = {
-                        valtypeselected = label
-                        isValueTypeMenuExpanded.value = false
-                    },
-                    text = { Text(label, color = Color.White) }
+            CustomDropdown(
+                label = "Value Type",
+                options = valuestype,
+                selectedIndex = valueTypeSelectedOptionIdx.value,
+                onOptionSelected = { valueTypeSelectedOptionIdx.value = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                ScanButton(
+                    text = "New Scan",
+                    enabled = newScanEnabled,
+                    isLoading = isScanOnGoing.value,
+                    onClick = newScanClicked,
+                    modifier = Modifier.weight(1f)
                 )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Button(
-                onClick = newScanClicked,
-                enabled = newScanEnabled,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("New Scan", color = Color.White)
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Button(
-                onClick = nextScanClicked,
-                enabled = nextScanEnabled,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Next Scan", color = Color.White)
+                ScanButton(
+                    text = "Next Scan",
+                    enabled = nextScanEnabled,
+                    isLoading = isScanOnGoing.value,
+                    onClick = nextScanClicked,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
 }
 
+@Composable
+private fun CustomDropdown(
+    label: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val expanded = remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { expanded.value = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Text(
+                text = "$label: ${options[selectedIndex]}",
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, false)
+            )
+            Icon(
+                imageVector = if (expanded.value) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded.value,
+            onDismissRequest = { expanded.value = false },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            options.forEachIndexed { index, option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = option,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    },
+                    onClick = {
+                        onOptionSelected(index)
+                        expanded.value = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanButton(
+    text: String,
+    enabled: Boolean,
+    isLoading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled && !isLoading,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(24.dp))
+        } else {
+            Text(
+                text = text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
 private val scanTypeOptions = listOf(
-    "ACCURATE_VAL", "LARGER_THAN_VAL", "LESS_THAN_VAL",
-    "BETWEEN_VAL", "CHANGED_VAL", "UNCHANGED_VAL"
+    "ACCURATE_VAL", "CHANGED_VAL", "UNCHANGED_VAL"
 )

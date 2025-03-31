@@ -1,22 +1,34 @@
 package com.yervant.huntgames.ui.menu
 
 import android.content.Context
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.PlayDisabled
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,193 +36,468 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yervant.huntgames.backend.HGMem
 import com.yervant.huntgames.backend.Hunt
 import com.yervant.huntgames.backend.Memory
 import com.yervant.huntgames.backend.Process
-import com.yervant.huntgames.ui.CreateTable
 import com.yervant.huntgames.ui.DialogCallback
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import java.io.File
-import java.io.FileOutputStream
-import java.io.PrintWriter
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
 class AddressInfo(
     val matchInfo: MatchInfo,
     val numType: String,
-) {
-}
-val savedaddressesfile = "/data/data/com.yervant.huntgames/files/savedaddresses.txt"
+)
+
 private val savedAddresList = mutableStateListOf<AddressInfo>()
+
 fun AddressTableAddAddress(matchInfo: MatchInfo) {
-    savedAddresList.add(AddressInfo(matchInfo, valtypeselected))
+    savedAddresList.add(AddressInfo(matchInfo, matchInfo.valuetype))
 }
 
 @Composable
 fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
-
+    val coroutineScope = rememberCoroutineScope()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showFreezeDialog by remember { mutableStateOf(false) }
-    var showAddressDialog by remember { mutableStateOf<Int?>(null) }
-    var showEditValueDialog by remember { mutableStateOf<AddressInfo?>(null) }
+    var selectedAddressIndex by remember { mutableStateOf<Int?>(null) }
+    var selectedAddressInfo by remember { mutableStateOf<AddressInfo?>(null) }
+
+    LaunchedEffect(savedAddresList.isNotEmpty()) {
+        while (isActive) {
+            refreshValue(context!!, dialogCallback)
+            delay(10.seconds)
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp)
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Column(
-            modifier = Modifier.weight(0.2f),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Filled.Delete, "Delete All Matches")
-                }
-                Button(onClick = { showEditDialog = true }) {
-                    Icon(Icons.Filled.Edit, "Edit All Matches")
-                }
-                Button(onClick = { showFreezeDialog = true }) {
-                    Icon(Icons.Filled.CheckCircle, "Freeze All Matches")
-                }
-                Button(onClick = { Hunt().unfreezeall(context!!) }) {
-                    Icon(Icons.Filled.Clear, "UnFreeze All Matches")
-                }
-            }
-        }
 
-        SavedAddressesTable(
-            modifier = Modifier.weight(0.8f),
-            savedAddressList = savedAddresList,
-            onAddressClicked = { itemIndex ->
-                showAddressDialog = itemIndex
-            },
-            onValueClicked = { addressInfo ->
-                showEditValueDialog = addressInfo
-            }
+        ControlButtonsRow(
+            showDeleteDialog = { showDeleteDialog = true },
+            showEditDialog = { showEditDialog = true },
+            showFreezeDialog = { showFreezeDialog = true }
         )
 
-        if (showDeleteDialog) {
-            dialogCallback.showInfoDialog(
-                title = "Hunt Games",
-                message = "Delete all addresses?",
-                onConfirm = {
-                    savedAddresList.clear()
-                },
-                onDismiss = { showDeleteDialog = false }
-            )
-            showDeleteDialog = false
-        }
-
-        if (showEditDialog) {
-            dialogCallback.showInputDialog(
-                title = "Edit All",
-                defaultValue = "999999999",
-                onConfirm = { input ->
-                    Hunt().writeall(savedAddresList, input, context!!)
-                },
-                onDismiss = { showEditDialog = false }
-            )
-            showEditDialog = false
-        }
-
-        if (showFreezeDialog) {
-            dialogCallback.showInputDialog(
-                title = "Freeze All",
-                defaultValue = "999999999",
-                onConfirm = { input ->
-                    Hunt().freezeall(savedAddresList, input, context!!)
-                },
-                onDismiss = { showFreezeDialog = false }
-            )
-            showFreezeDialog = false
-        }
-
-        showAddressDialog?.let { index ->
-            dialogCallback.showAddressDialog(
-                title = "Address",
-                onAddressDeleted = { savedAddresList.removeAt(index) },
-                onDismiss = { showAddressDialog = null }
-            )
-            showAddressDialog = null
-        }
-
-        showEditValueDialog?.let { addressInfo ->
-            dialogCallback.showInputDialog(
-                title = "Edit value of $addressInfo",
-                defaultValue = "999999999",
-                onConfirm = { newValue ->
-                    val hunt = Hunt()
-                    val addr = LongArray(1)
-                    addr[0] = addressInfo.matchInfo.address
-                    hunt.writeValueAtAddress(
-                        isattached().savepid(),
-                        addr,
-                        newValue,
-                        addressInfo.matchInfo.valuetype,
-                        context!!
-                    )
-                },
-                onDismiss = { showEditValueDialog = null }
-            )
-            showEditValueDialog = null
-        }
-
-        val fileOutputStream = FileOutputStream(savedaddressesfile)
-        val file = File(savedaddressesfile)
-        val contentfile: MutableList<String> = mutableListOf()
-        if (file.exists()) {
-            contentfile.addAll(file.readLines())
-        }
-        val printWriter = PrintWriter(fileOutputStream)
-        if (savedAddresList.isNotEmpty() && contentfile.isEmpty()) {
-            var i = 0
-            while (i < savedAddresList.size) {
-                val addressInfo = savedAddresList[i]
-                val s = addressInfo.matchInfo.address
-                val numValStr = addressInfo.matchInfo.prevValue
-                val line = "$s $numValStr"
-                printWriter.println(line)
-                i++
-            }
-            printWriter.close()
-        }
-        if (contentfile.isNotEmpty()) {
-            LaunchedEffect(Unit) {
-                while (
-                    savedAddresList.isNotEmpty() &&
-                    contentfile.isNotEmpty()
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            elevation = CardDefaults.cardElevation(4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column {
+                AddressTableHeader()
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    refreshValueTable(context!!, dialogCallback)
-                    delay(10.seconds)
+                    itemsIndexed(savedAddresList) { index, item ->
+                        AddressTableRow(
+                            item = item,
+                            index = index,
+                            onAddressClick = { selectedAddressIndex = index },
+                            onValueClick = { selectedAddressInfo = item }
+                        )
+                        if (index < savedAddresList.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                thickness = 1.dp
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+
+    DialogHandling(
+        context = context,
+        dialogCallback = dialogCallback,
+        coroutineScope = coroutineScope,
+        showDeleteDialog = showDeleteDialog,
+        showEditDialog = showEditDialog,
+        showFreezeDialog = showFreezeDialog,
+        selectedAddressIndex = selectedAddressIndex,
+        selectedAddressInfo = selectedAddressInfo,
+        onDismissDelete = { showDeleteDialog = false },
+        onDismissEdit = { showEditDialog = false },
+        onDismissFreeze = { showFreezeDialog = false },
+        onDismissAddress = { selectedAddressIndex = null },
+        onDismissValue = { selectedAddressInfo = null }
+    )
 }
 
-suspend fun refreshValueTable(context: Context, dialogCallback: DialogCallback) {
-    val mem = Memory()
-    val currentsavedaddressList = readSavedAddressesFile()
-    val fileOutputStream = FileOutputStream(savedaddressesfile)
-    val printWriter = PrintWriter(fileOutputStream)
+@Composable
+private fun ControlButtonsRow(
+    showDeleteDialog: () -> Unit,
+    showEditDialog: () -> Unit,
+    showFreezeDialog: () -> Unit
+) {
+    val configuration = LocalConfiguration.current
+    val isPortrait = configuration.screenHeightDp > configuration.screenWidthDp
 
-    val pid = isattached().savepid()
+    if (isPortrait) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ControlButton(
+                    icon = Icons.Filled.Delete,
+                    text = "Delete All",
+                    containerColor = MaterialTheme.colorScheme.error,
+                    onClick = showDeleteDialog,
+                    modifier = Modifier.weight(1f)
+                )
+                ControlButton(
+                    icon = Icons.Filled.Edit,
+                    text = "Edit All",
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    onClick = showEditDialog,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ControlButton(
+                    icon = Icons.Filled.CheckCircle,
+                    text = "Freeze All",
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    onClick = showFreezeDialog,
+                    modifier = Modifier.weight(1f)
+                )
+                ControlButton(
+                    icon = Icons.Filled.PlayDisabled,
+                    text = "Unfreeze",
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    onClick = { Hunt().unfreezeall() },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ControlButton(
+                icon = Icons.Filled.Delete,
+                text = "Delete All",
+                containerColor = MaterialTheme.colorScheme.error,
+                onClick = showDeleteDialog
+            )
+            ControlButton(
+                icon = Icons.Filled.Edit,
+                text = "Edit All",
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                onClick = showEditDialog
+            )
+            ControlButton(
+                icon = Icons.Filled.CheckCircle,
+                text = "Freeze All",
+                containerColor = MaterialTheme.colorScheme.primary,
+                onClick = showFreezeDialog
+            )
+            ControlButton(
+                icon = Icons.Filled.PlayDisabled,
+                text = "Unfreeze",
+                containerColor = MaterialTheme.colorScheme.secondary,
+                onClick = { Hunt().unfreezeall() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ControlButton(
+    icon: ImageVector,
+    text: String,
+    containerColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedButton(
+        onClick = onClick,
+        colors = ButtonDefaults.elevatedButtonColors(
+            containerColor = containerColor,
+            contentColor = Color.White
+        ),
+        modifier = modifier.height(40.dp),
+        elevation = ButtonDefaults.elevatedButtonElevation(4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = text,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddressTableHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(vertical = 12.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        TableCell(
+            text = "Address",
+            weight = 0.4f,
+            textStyle = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        )
+        TableCell(
+            text = "Type",
+            weight = 0.2f,
+            textStyle = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        )
+        TableCell(
+            text = "Value",
+            weight = 0.4f,
+            textStyle = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        )
+    }
+}
+
+@Composable
+private fun AddressTableRow(
+    item: AddressInfo,
+    index: Int,
+    onAddressClick: (Int) -> Unit,
+    onValueClick: (AddressInfo) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = LocalIndication.current,
+                onClick = { onAddressClick(index) }
+            ),
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TableCell(
+                text = "0x${item.matchInfo.address.toString(16).uppercase(Locale.ROOT)}",
+                weight = 0.4f,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontFamily = FontFamily.Monospace
+                )
+            )
+            TableCell(
+                text = item.matchInfo.valuetype,
+                weight = 0.2f,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+            TableCell(
+                text = item.matchInfo.prevValue,
+                weight = 0.4f,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontWeight = FontWeight.Medium
+                ),
+                onClick = { onValueClick(item) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TableCell(
+    text: String,
+    weight: Float,
+    textStyle: TextStyle = MaterialTheme.typography.bodyMedium,
+    onClick: (() -> Unit)? = null
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth(weight)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = text,
+            style = textStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun DialogHandling(
+    context: Context?,
+    dialogCallback: DialogCallback,
+    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    showDeleteDialog: Boolean,
+    showEditDialog: Boolean,
+    showFreezeDialog: Boolean,
+    selectedAddressIndex: Int?,
+    selectedAddressInfo: AddressInfo?,
+    onDismissDelete: () -> Unit,
+    onDismissEdit: () -> Unit,
+    onDismissFreeze: () -> Unit,
+    onDismissAddress: () -> Unit,
+    onDismissValue: () -> Unit
+) {
+    if (showDeleteDialog) {
+        dialogCallback.showInfoDialog(
+            title = "Delete All Addresses",
+            message = "Are you sure you want to delete all saved addresses?",
+            onConfirm = {
+                savedAddresList.clear()
+                onDismissDelete()
+            },
+            onDismiss = onDismissDelete
+        )
+    }
+
+    if (showEditDialog) {
+        dialogCallback.showInputDialog(
+            title = "Edit All Values",
+            defaultValue = "999999999",
+            onConfirm = { input ->
+                context?.let {
+                    coroutineScope.launch {
+                        Hunt().writeall(savedAddresList, input, context)
+                    }
+                }
+                onDismissEdit()
+            },
+            onDismiss = onDismissEdit
+        )
+    }
+
+    if (showFreezeDialog) {
+        dialogCallback.showInputDialog(
+            title = "Freeze All Values",
+            defaultValue = "999999999",
+            onConfirm = { input ->
+                context?.let {
+                    coroutineScope.launch {
+                        Hunt().freezeall(savedAddresList, input, context)
+                    }
+                }
+                onDismissFreeze()
+            },
+            onDismiss = onDismissFreeze
+        )
+    }
+
+    selectedAddressIndex?.let { index ->
+        dialogCallback.showInfoDialog(
+            title = "Delete Address",
+            message = "Delete this address from the list?",
+            onConfirm = {
+                savedAddresList.removeAt(index)
+                onDismissAddress()
+            },
+            onDismiss = onDismissAddress
+        )
+    }
+
+    selectedAddressInfo?.let { info ->
+        dialogCallback.showInputDialog(
+            title = "Edit Value",
+            defaultValue = info.matchInfo.prevValue,
+            onConfirm = { newValue ->
+                val hgmem = HGMem()
+                context?.let {
+                    coroutineScope.launch {
+                        hgmem.writeMem(
+                            isattached().currentPid(),
+                            info.matchInfo.address,
+                            info.matchInfo.valuetype,
+                            newValue,
+                            context
+                        )
+                        refreshValue(context, dialogCallback)
+                    }
+                }
+                onDismissValue()
+            },
+            onDismiss = onDismissValue
+        )
+    }
+}
+
+private suspend fun refreshValue(context: Context, dialogCallback: DialogCallback) {
+    val mem = Memory()
+    val pid = isattached().currentPid()
+    val lastPid = isattached().lastPid()
 
     if (pid < 0) {
         dialogCallback.showInfoDialog(
-            title = "Hunt Games",
-            message = "No Process Attached",
+            title = "Error",
+            message = "No process attached",
             onConfirm = {},
             onDismiss = {}
         )
@@ -219,110 +506,48 @@ suspend fun refreshValueTable(context: Context, dialogCallback: DialogCallback) 
 
     if (!Process().processIsRunning(pid.toString())) {
         dialogCallback.showInfoDialog(
-            title = "Hunt Games",
-            message = "Process Not Exist Anymore",
+            title = "Error",
+            message = "Process not running",
             onConfirm = {},
             onDismiss = {}
         )
+        savedAddresList.clear()
         isattached().reset()
+        isattached().resetLast()
         return
     }
 
-    val addresses = LongArray(currentsavedaddressList.size)
-    var i = 0
-    while (i < addresses.size) {
-        addresses[i] = currentsavedaddressList[i].address
-        i++
+    if (lastPid != -1 && lastPid != pid) {
+        dialogCallback.showInfoDialog(
+            title = "Info",
+            message = "Process changed cleaning...",
+            onConfirm = {},
+            onDismiss = {}
+        )
+        savedAddresList.clear()
+        isattached().resetLast()
+        return
     }
 
-    val values = mem.getValues(addresses, context)
-    values.forEachIndexed { index, value ->
-        val line = "${currentsavedaddressList[index].address} $value"
-        printWriter.println(line)
-        savedAddresList.add(AddressInfo(
-            MatchInfo(
-                currentsavedaddressList[index].address,
-                value.toString(),
-                currentsavedaddressList[index].valuetype
-            ),
-            valtypeselected
-        ))
-    }
-    printWriter.close()
-}
-
-fun readSavedAddressesFile(): List<MatchInfo> {
-    val file = File(savedaddressesfile)
-    val savedaddresses = mutableListOf<MatchInfo>()
-
-    if (file.exists()) {
-        for (s: String in file.readLines()) {
-            val parts = s.split(" ")
-            val addr = parts[0]
-            val value = parts[1]
-            val valtype = parts[2]
-            savedaddresses.add(MatchInfo(addr.toLong(16), value, valtype))
-        }
-    }
-
-    return savedaddresses
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SavedAddressesTable(
-    modifier: Modifier = Modifier,
-    savedAddressList: SnapshotStateList<AddressInfo>,
-    onValueClicked: (addressInfo: AddressInfo) -> Unit,
-    onAddressClicked: (itemIndex: Int) -> Unit
-) {
-
-    CreateTable(
-        modifier = modifier,
-        colNames = listOf("Address", "Type", "Value"),
-        colWeights = listOf(0.4f, 0.2f, 0.4f),
-        itemCount = savedAddressList.size,
-        minEmptyItemCount = 50,
-        onRowClicked = { rowIndex: Int ->
-        },
-        rowMinHeight = 25.dp,
-        drawCell = { rowIndex: Int, colIndex: Int ->
-            // address
-            if (colIndex == 0) {
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onAddressClicked(rowIndex)
-                        },
-                ) {
-                    Text(text = savedAddressList[rowIndex].matchInfo.address.toString(), color = Color.White)
-                }
-            }
-
-            // num type
-            if (colIndex == 1) {
-                Text(text = savedAddressList[rowIndex].matchInfo.valuetype, color = Color.White)
-            }
-
-            // value
-            if (colIndex == 2) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            onValueClicked(
-                                savedAddressList[rowIndex]
-                            )
-
-                        },
-                ) {
-                    Text(
-                        text = savedAddressList[rowIndex].matchInfo.prevValue, color = Color.White
-                    )
-                }
+    withContext(Dispatchers.IO) {
+        savedAddresList.forEachIndexed { index, addressInfo ->
+            try {
+                val currentValue = mem.readMemory(
+                    pid,
+                    addressInfo.matchInfo.address,
+                    addressInfo.matchInfo.valuetype,
+                    context
+                )
+                savedAddresList[index] = addressInfo.copy(
+                    matchInfo = addressInfo.matchInfo.copy(prevValue = currentValue)
+                )
+            } catch (e: Exception) {
+                savedAddresList.removeAt(index)
             }
         }
-    )
+    }
+}
+
+private fun AddressInfo.copy(matchInfo: MatchInfo = this.matchInfo): AddressInfo {
+    return AddressInfo(matchInfo, this.numType)
 }

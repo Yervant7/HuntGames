@@ -3,51 +3,113 @@ package com.yervant.huntgames.backend
 import android.content.Context
 import com.yervant.huntgames.ui.menu.AddressInfo
 import com.yervant.huntgames.ui.menu.isattached
-import com.yervant.huntgames.ui.menu.valtypeselected
+import kotlinx.coroutines.*
+import java.util.concurrent.atomic.AtomicBoolean
+import android.util.Log
 
 class Hunt {
 
-    fun writeall(addrs: MutableList<AddressInfo>, value: String, context: Context) {
-        val pid = isattached().savepid()
-        val addresses = LongArray(addrs.size)
-        var i = 0
-        while (i < addresses.size) {
-            addresses[i] = addrs[i].matchInfo.address
-            i++
+    private var freezeJob: Job? = null
+
+    private val isFreezing = AtomicBoolean(false)
+
+    suspend fun writeall(addrs: MutableList<AddressInfo>, value: String, context: Context) {
+        val pid = isattached().currentPid()
+        val hgmem = HGMem()
+
+        addrs.forEach { addressInfo ->
+            var skip = false
+            when (addressInfo.matchInfo.valuetype.lowercase()) {
+                "int" -> value.toIntOrNull()
+                    ?: {
+                        skip = true
+                    }
+                "long" -> value.toLongOrNull()
+                    ?: {
+                        skip = true
+                    }
+                "float" -> value.toFloatOrNull()
+                    ?: {
+                        skip = true
+                    }
+                "double" -> value.toDoubleOrNull()
+                    ?: {
+                        skip = true
+                    }
+            }
+            if (!skip) {
+                hgmem.writeMem(
+                    pid = pid,
+                    address = addressInfo.matchInfo.address,
+                    datatype = addressInfo.matchInfo.valuetype,
+                    value = value,
+                    context = context
+                )
+            }
         }
-        writeValueAtAddress(pid, addresses, value, valtypeselected, context)
-
     }
 
-    fun unfreezeall(context: Context) {
-        val rwmem = rwMem()
-        rwmem.stopFreeze(context)
+    fun unfreezeall() {
+        freezeJob?.cancel()
+        isFreezing.set(false)
     }
 
-    fun freezeall(addrs: MutableList<AddressInfo>, value: String, context: Context) {
-        val pid = isattached().savepid()
-        val rwmem = rwMem()
-        var i = 0
-        val addresses = LongArray(addrs.size)
+    suspend fun freezeall(
+        addrs: MutableList<AddressInfo>,
+        value: String,
+        context: Context,
+        intervalMs: Long = 100
+    ) {
+        unfreezeall()
 
-        while (i < addrs.size) {
-            addresses[i] = addrs[i].matchInfo.address
-            i++
-        }
-        rwmem.stopFreeze(context)
-        rwmem.freeze(pid, addresses, valtypeselected, value, context)
-    }
+        val pid = isattached().currentPid()
+        val hgmem = HGMem()
 
-    fun writeValueAtAddress(pid: Long, addrs: LongArray, value: String, valtype: String, context: Context) {
-        val hunt = HuntingMemory()
-        if(valtype == "int") {
-            hunt.writemem(pid, addrs, "int", value, context)
-        } else if (valtype == "long") {
-            hunt.writemem(pid, addrs, "long", value, context)
-        } else if (valtype == "float") {
-            hunt.writemem(pid, addrs, "float", value, context)
-        } else if (valtype == "double") {
-            hunt.writemem(pid, addrs, "double", value, context)
+        isFreezing.set(true)
+
+        freezeJob = CoroutineScope(Dispatchers.IO).launch {
+            while (isFreezing.get() && isActive) {
+                try {
+                    addrs.forEach { addressInfo ->
+                        var skip = false
+                        when (addressInfo.matchInfo.valuetype.lowercase()) {
+                            "int" -> value.toIntOrNull()
+                                ?: {
+                                    skip = true
+                                }
+                            "long" -> value.toLongOrNull()
+                                ?: {
+                                    skip = true
+                                }
+                            "float" -> value.toFloatOrNull()
+                                ?: {
+                                    skip = true
+                                }
+                            "double" -> value.toDoubleOrNull()
+                                ?: {
+                                    skip = true
+                                }
+                        }
+                        if (!skip) {
+                            hgmem.writeMem(
+                                pid = pid,
+                                address = addressInfo.matchInfo.address,
+                                datatype = addressInfo.matchInfo.valuetype,
+                                value = value,
+                                context = context
+                            )
+                        }
+                    }
+
+                    delay(intervalMs)
+                } catch (e: Exception) {
+                    Log.e("FreezeAll", "Error in freeze loop", e)
+
+                    if (e is CancellationException) {
+                        break
+                    }
+                }
+            }
         }
     }
 }
