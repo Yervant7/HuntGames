@@ -195,12 +195,12 @@ private fun PatchBootTab(
     }
 }
 
-private fun executeShell(cmd: String): String {
+private fun executeShell(cmd: String, allowNonZeroExit: Boolean = false): String {
     val res = Shell.cmd(cmd).exec()
-    return if (res.isSuccess) {
+    return if (res.code == 0 || allowNonZeroExit) {
         res.out.joinToString("\n")
     } else {
-        throw Exception("Error executing command: $cmd\nSTDOUT:\n${res.out.joinToString("\n")}\nSTDERR:\n${res.err.joinToString("\n")}")
+        "Error executing command: $cmd\nExit Code: ${res.code}\n${res.err.joinToString("\n")}"
     }
 }
 
@@ -215,7 +215,15 @@ private suspend fun patchBootImage(
             executeShell("cd ${dir.absolutePath}")
             var log = executeShell("${dir.absolutePath}/magiskboot unpack ${dir.absolutePath}/boot.img")
             logs.add(log)
-            log = executeShell("${dir.absolutePath}/kptools -p -i ${dir.absolutePath}/kernel -S \"$superkey\" -k ${dir.absolutePath}/kpimg -o ${dir.absolutePath}/new-kernel")
+            var kpimgver = "kpimg"
+
+            log = executeShell("${dir.absolutePath}/kptools -c -i ${dir.absolutePath}/kernel", allowNonZeroExit = true)
+            if (log.contains("is PATCHED.")) {
+                kpimgver = "kpimg-with-kp"
+            }
+            logs.add(log)
+
+            log = executeShell("${dir.absolutePath}/kptools -p -i ${dir.absolutePath}/kernel -S \"$superkey\" -k ${dir.absolutePath}/$kpimgver -o ${dir.absolutePath}/new-kernel")
             logs.add(log)
             log = executeShell("rm ${dir.absolutePath}/kernel")
             logs.add(log)

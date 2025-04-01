@@ -72,13 +72,17 @@ class MainActivity : ComponentActivity() {
         executeSuCommand("chmod +x $f")
         val fil = File(filesDir, "patch/kptools")
         if (!fil.exists()) {
-            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kptools-android", "patch/kptools")
+            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kptools", "patch/kptools")
         }
         val fi = fil.absolutePath
         executeSuCommand("chmod +x $fi")
         val afil = File(filesDir, "patch/kpimg")
         if (!afil.exists()) {
             copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kpimg", "patch/kpimg")
+        }
+        val bfil = File(filesDir, "patch/kpimg-with-kp")
+        if (!bfil.exists()) {
+            copyfile.FileUtil.copyAssetFileToInternalStorage(this, "kpimg-with-kp", "patch/kpimg-with-kp")
         }
 
         if (!Settings.canDrawOverlays(this)) {

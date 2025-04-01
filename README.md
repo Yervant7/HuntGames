@@ -21,13 +21,6 @@ HuntGames is an Android memory editor and analysis on ARM64 devices. This projec
 4. flash the "patched_boot.img" of your downloads folder (If it doesn't exist, check the installation logs and check if your kernel is compatible.)
 5. reboot and enjoy.
 
-### Using APatch KPM
-
-1. Download apk and kpm in the releases section.
-2. load kpm in APatch (It is recommended to configure your key in the APatch app kpm control, just enter your key as argument.)
-3. Open HuntGames (If you configured your key in kpm control, configure the same key in HuntGames)
-4. start and enjoy.
-
 ## Community and Support
 
 For discussions and support, join our Telegram group: [HuntGames Telegram Group](https://t.me/huntgames7).

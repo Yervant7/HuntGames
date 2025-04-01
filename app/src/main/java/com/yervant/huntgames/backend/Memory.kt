@@ -13,49 +13,57 @@ import java.nio.ByteOrder
 class Memory {
 
     fun listMatches(maxCount: Int): List<MatchInfo> {
-        return if (maxCount > 0 && matches.size > maxCount) {
-            matches.take(maxCount)
-        } else {
-            matches
+        return synchronized(matches) {
+            matches.take(maxCount).toList()
         }
     }
 
-    suspend fun readMemory(pid: Int, addr: Long, datatype: String, context: Context): String {
-
+    suspend fun readMemory(pid: Int, addr: Long, datatype: String, context: Context): Number {
         return when (datatype.lowercase()) {
             "int" -> {
-                val readValue = HGMem().readMem(pid, addr, 4, context).getOrElse { null }
-                if (readValue == null) {
-                    ""
+                val byteCount = 4
+                val bytes = HGMem().readMem(pid, addr, byteCount.toLong(), context).getOrNull()
+                if (bytes != null && bytes.size == byteCount) {
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).int
                 } else {
-                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).int.toString()
+                    Log.w(TAG, "Failed to read Int at $addr. Returning 0.")
+                    0
                 }
             }
             "long" -> {
-                val readValue = HGMem().readMem(pid, addr, 8, context).getOrElse { null }
-                if (readValue == null) {
-                    ""
+                val byteCount = 8
+                val bytes = HGMem().readMem(pid, addr, byteCount.toLong(), context).getOrNull()
+                if (bytes != null && bytes.size == byteCount) {
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).long
                 } else {
-                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).long.toString()
+                    Log.w(TAG, "Failed to read Long at $addr. Returning 0L.")
+                    0L
                 }
             }
             "float" -> {
-                val readValue = HGMem().readMem(pid, addr, 4, context).getOrElse { null }
-                if (readValue == null) {
-                    ""
+                val byteCount = 4
+                val bytes = HGMem().readMem(pid, addr, byteCount.toLong(), context).getOrNull()
+                if (bytes != null && bytes.size == byteCount) {
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).float
                 } else {
-                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).float.toString()
+                    Log.w(TAG, "Failed to read Float at $addr. Returning 0.0f.")
+                    0.0f
                 }
             }
             "double" -> {
-                val readValue = HGMem().readMem(pid, addr, 8, context).getOrElse { null }
-                if (readValue == null) {
-                    ""
+                val byteCount = 8
+                val bytes = HGMem().readMem(pid, addr, byteCount.toLong(), context).getOrNull()
+                if (bytes != null && bytes.size == byteCount) {
+                    ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).double
                 } else {
-                    ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).double.toString()
+                    Log.w(TAG, "Failed to read Double at $addr. Returning 0.0.")
+                    0.0
                 }
             }
-            else -> throw IllegalArgumentException("Unsupported data type: $datatype")
+            else -> {
+                Log.w(TAG, "Unsupported data type: $datatype. Returning 0.")
+                0
+            }
         }
     }
 
@@ -65,7 +73,9 @@ class Memory {
 
         matchs.forEach { match ->
             val value = readMemory(pid, match.address, match.valuetype, context)
-            newMatchs.add(MatchInfo(match.address, value, match.valuetype))
+            if (!(value == 0 || value == 0.0)) {
+                newMatchs.add(MatchInfo(match.address, value, match.valuetype))
+            }
         }
 
         return newMatchs
@@ -76,131 +86,138 @@ class Memory {
             val pid = isattached().currentPid()
             val results: MutableList<MatchInfo> = mutableListOf()
             val scantype = getscantype()
+            val localMatches = synchronized(matches) { matches.toList() }
 
             if (scantype == 1 || scantype == 2) {
                 if (scantype == 1) {
-                    matches.forEach { match ->
+                    localMatches.forEach { match ->
                         val valuestr =
                             readMemory(pid, match.address, match.valuetype, context)
-                        when (match.valuetype) {
-                            "int" -> {
-                                if (match.prevValue.toInt() != valuestr.toInt()) {
-                                    results.add(
-                                        MatchInfo(
+                        if (!(valuestr == 0 || valuestr == 0.0)) {
+                            when (match.valuetype) {
+                                "int" -> {
+                                    if (match.prevValue.toInt() != valuestr.toInt()) {
+                                        results.add(
+                                            MatchInfo(
                                                 match.address,
                                                 valuestr,
                                                 match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "long" -> {
-                                if (match.prevValue.toLong() != valuestr.toLong()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "long" -> {
+                                    if (match.prevValue.toLong() != valuestr.toLong()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "float" -> {
-                                if (match.prevValue.toFloat() != valuestr.toFloat()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "float" -> {
+                                    if (match.prevValue.toFloat() != valuestr.toFloat()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "double" -> {
-                                if (match.prevValue.toFloat() != valuestr.toFloat()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "double" -> {
+                                    if (match.prevValue.toDouble() != valuestr.toDouble()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
-                    matches.clear()
-                    if (results.isNotEmpty()) {
-                        matches.addAll(results)
-                    } else {
+                    if (results.isEmpty()) {
                         Log.d("Memory", "No results to write")
+                    }
+                    synchronized(matches) {
+                        matches.clear()
+                        matches.addAll(results)
                     }
                 } else {
-                    matches.forEach { match ->
+                    localMatches.forEach { match ->
                         val valuestr =
                             readMemory(pid, match.address, match.valuetype, context)
-                        when (match.valuetype) {
-                            "int" -> {
-                                if (match.prevValue.toInt() == valuestr.toInt()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                        if (!(valuestr == 0 || valuestr == 0.0)) {
+                            when (match.valuetype) {
+                                "int" -> {
+                                    if (match.prevValue.toInt() == valuestr.toInt()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "long" -> {
-                                if (match.prevValue.toLong() == valuestr.toLong()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "long" -> {
+                                    if (match.prevValue.toLong() == valuestr.toLong()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "float" -> {
-                                if (match.prevValue.toFloat() == valuestr.toFloat()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "float" -> {
+                                    if (match.prevValue.toFloat() == valuestr.toFloat()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
-                            }
 
-                            "double" -> {
-                                if (match.prevValue.toDouble() == valuestr.toDouble()) {
-                                    results.add(
-                                        MatchInfo(
-                                            match.address,
-                                            valuestr,
-                                            match.valuetype
+                                "double" -> {
+                                    if (match.prevValue.toDouble() == valuestr.toDouble()) {
+                                        results.add(
+                                            MatchInfo(
+                                                match.address,
+                                                valuestr,
+                                                match.valuetype
+                                            )
                                         )
-                                    )
+                                    }
                                 }
                             }
                         }
                     }
-                    matches.clear()
-                    if (results.isNotEmpty()) {
-                        matches.addAll(results)
-                    } else {
+                    if (results.isEmpty()) {
                         Log.d("Memory", "No results to write")
+                    }
+                    synchronized(matches) {
+                        matches.clear()
+                        matches.addAll(results)
                     }
                 }
             } else {
-                if (matches.isEmpty()) {
+                if (localMatches.isEmpty()) {
 
                     val scanOptions = getCurrentScanOption()
                     val regions = getSelectedRegions()
@@ -244,14 +261,15 @@ class Memory {
                     }
                     results.addAll(res)
                 } else {
-                    val matchs = MemoryScanner(pid).filterAddressesAuto(matches, numValStr, context)
+                    val matchs = MemoryScanner(pid).filterAddressesAuto(localMatches, numValStr, context)
                     results.addAll(matchs)
                 }
-                matches.clear()
-                if (results.isNotEmpty()) {
-                    matches.addAll(results)
-                } else {
+                if (results.isEmpty()) {
                     Log.d("Memory", "No results to write")
+                }
+                synchronized(matches) {
+                    matches.clear()
+                    matches.addAll(results)
                 }
             }
         } catch (e: Exception) {
@@ -261,12 +279,13 @@ class Memory {
     }
 
     companion object {
+        const val TAG = "Memory"
         var matches: MutableList<MatchInfo> = mutableListOf()
     }
 }
 
 class HuntSettings {
     companion object {
-        val maxShownMatchesCount: Int = 1000
+        const val maxShownMatchesCount: Int = 1000
     }
 }

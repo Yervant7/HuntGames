@@ -4,6 +4,17 @@ import android.content.Context
 import android.util.Log
 import com.topjohnwu.superuser.Shell
 import com.yervant.huntgames.ui.menu.MatchInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.toList
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -72,74 +83,170 @@ class MemoryScanner(private val pid: Int) {
         }
     }
 
-    private suspend fun <T> searchMemory(
+    private suspend inline fun <reified T : Number> searchMemory(
         value: T,
         size: Int,
         dataType: String,
         context: Context,
-        convert: (ByteArray) -> T,
+        noinline converter: (ByteArray) -> T,
         regions: List<MemoryRegion>? = null,
         customFilter: String? = null
     ): List<MatchInfo> {
-        val foundAddresses = mutableListOf<Long>()
+        val targetBytes = when (T::class) {
+            Int::class -> ByteBuffer.allocate(4)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(value as Int)
+                .array()
+            Long::class -> ByteBuffer.allocate(8)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putLong(value as Long)
+                .array()
+            Float::class -> ByteBuffer.allocate(4)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putFloat(value as Float)
+                .array()
+            Double::class -> ByteBuffer.allocate(8)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putDouble(value as Double)
+                .array()
+            else -> throw IllegalArgumentException("Unsupported type")
+        }
+
+        return searchMemoryBytes(
+            targetBytes = targetBytes,
+            size = size,
+            dataType = dataType,
+            context = context,
+            converter = converter,
+            regions = regions,
+            customFilter = customFilter
+        )
+    }
+
+    private suspend fun <T : Number> searchMemoryBytes(
+        targetBytes: ByteArray,
+        size: Int,
+        dataType: String,
+        context: Context,
+        converter: (ByteArray) -> T,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null
+    ): List<MatchInfo> {
         val memoryRegions = readMemoryMaps()
+        val channel = Channel<MatchInfo>(Channel.UNLIMITED)
 
-        memoryRegions
-            .filter { it.permissions.contains("r") } // Apenas regiões legíveis
-            .filter { region ->
-                regions?.let {
-                    it.any { regionType ->
-                        regionType.matches(MemoryRegions(
-                            start = region.start,
-                            end = region.end,
-                            permissions = region.permissions,
-                            offset = region.offset,
-                            device = region.device,
-                            inode = region.inode,
-                            path = region.path
-                        ), customFilter)
+        coroutineScope {
+            val jobs = memoryRegions
+                .filter { it.permissions.contains("r") }
+                .filter { region ->
+                    regions?.any { regionType ->
+                        regionType.matches(region, customFilter)
+                    } ?: true
+                }
+                .map { region ->
+                    launch(Dispatchers.Default) {
+                        processRegionBytes(
+                            region = region,
+                            targetBytes = targetBytes,
+                            size = size,
+                            context = context,
+                            channel = channel,
+                            converter = converter,
+                            dataType = dataType
+                        )
                     }
-                } ?: true
+                }
+
+            jobs.joinAll()
+            channel.close()
+        }
+
+        return channel.toList()
+    }
+
+    private suspend fun <T : Number> processRegionBytes(
+        region: MemoryRegions,
+        targetBytes: ByteArray,
+        size: Int,
+        context: Context,
+        channel: SendChannel<MatchInfo>,
+        converter: (ByteArray) -> T,
+        dataType: String
+    ) = coroutineScope {
+        var currentAddress = region.start
+        val regionSize = region.end - region.start
+
+        while (currentAddress < region.end && isActive) {
+            val readSize = minOf(regionSize, 100 * 1024 * 1024).toInt()
+            val chunkAddress = currentAddress
+
+            launch(Dispatchers.IO) {
+                HGMem().readMem(pid, chunkAddress, readSize.toLong(), context)
+                    .onSuccess { memoryChunk ->
+                        processChunkBytes(
+                            memoryChunk,
+                            chunkAddress,
+                            targetBytes,
+                            size,
+                            converter,
+                            dataType,
+                            channel
+                        )
+                    }
             }
-            .forEach { region ->
-                var currentAddress = region.start
-                val regionSize = region.end - region.start
 
-                while (currentAddress < region.end) {
-                    val readSize = minOf(regionSize, 100 * 1024 * 1024).toInt() // Leitura em blocos de 1MB
+            currentAddress += readSize.toLong()
+        }
+    }
 
-                    try {
-                        HGMem().readMem(
-                            pid,
-                            currentAddress,
-                            readSize.toLong(),
-                            context
-                        ).onSuccess { memorychunk ->
-                            for (i in 0 until memorychunk.size - size) {
-                                val bytes = memorychunk.sliceArray(i until i + size)
-                                try {
-                                    if (convert(bytes) == value) {
-                                        foundAddresses.add(currentAddress + i)
-                                    }
-                                } catch (e: Exception) {
-                                    e.message?.let { Log.d("MemoryScanner", it) }
-                                }
-                            }
-                        }.onFailure { e ->
+    private suspend fun <T : Number> processChunkBytes(
+        memoryChunk: ByteArray,
+        chunkAddress: Long,
+        targetBytes: ByteArray,
+        size: Int,
+        converter: (ByteArray) -> T,
+        dataType: String,
+        channel: SendChannel<MatchInfo>
+    ) = coroutineScope {
+        val chunkLength = memoryChunk.size - size
+        if (chunkLength <= 0) return@coroutineScope
+
+        val numParts = Runtime.getRuntime().availableProcessors() * 2
+        val baseSize = chunkLength / numParts
+        val remainder = chunkLength % numParts
+
+        (0 until numParts)
+            .map { part ->
+                async(Dispatchers.Default) {
+                    val start = part * baseSize + if (part < remainder) part else remainder
+                    val end = start + baseSize + if (part < remainder) 1 else 0
+                    val matches = mutableListOf<MatchInfo>()
+
+                    for (i in start until end) {
+                        if (matchesTarget(memoryChunk, i, targetBytes)) {
+                            val valueBytes = memoryChunk.copyOfRange(i, i + size)
+                            val value = converter(valueBytes)
+                            matches.add(MatchInfo(chunkAddress + i, value, dataType))
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
-
-                    currentAddress += readSize.toLong()
+                    matches
                 }
             }
+            .awaitAll()
+            .flatten()
+            .forEach {
+                try {
+                    channel.send(it)
+                } catch (_: ClosedSendChannelException) {
+                }
+            }
+    }
 
-        val res: MutableList<MatchInfo> = mutableListOf()
-        foundAddresses.forEach { addr ->
-            res.add(MatchInfo(addr, value.toString(), dataType))
+    private fun matchesTarget(memory: ByteArray, index: Int, target: ByteArray): Boolean {
+        for (j in target.indices) {
+            if (memory[index + j] != target[j]) return false
         }
-        return res
+        return true
     }
 
     suspend fun searchInt(
@@ -149,9 +256,10 @@ class MemoryScanner(private val pid: Int) {
         regions: List<MemoryRegion>? = null,
         customFilter: String? = null
     ): List<MatchInfo> {
-        return searchMemory(value, 4, dataType, context, { bytes ->
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).int
-        }, regions, customFilter)
+        return searchMemory(value, 4, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).int },
+            regions, customFilter
+        )
     }
 
     suspend fun searchLong(
@@ -161,9 +269,10 @@ class MemoryScanner(private val pid: Int) {
         regions: List<MemoryRegion>? = null,
         customFilter: String? = null
     ): List<MatchInfo> {
-        return searchMemory(value, 8, dataType, context, { bytes ->
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).long
-        }, regions, customFilter)
+        return searchMemory(value, 8, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).long },
+            regions, customFilter
+        )
     }
 
     suspend fun searchFloat(
@@ -173,9 +282,10 @@ class MemoryScanner(private val pid: Int) {
         regions: List<MemoryRegion>? = null,
         customFilter: String? = null
     ): List<MatchInfo> {
-        return searchMemory(value, 4, dataType, context, { bytes ->
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).float
-        }, regions, customFilter)
+        return searchMemory(value, 4, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).float },
+            regions, customFilter
+        )
     }
 
     suspend fun searchDouble(
@@ -185,57 +295,68 @@ class MemoryScanner(private val pid: Int) {
         regions: List<MemoryRegion>? = null,
         customFilter: String? = null
     ): List<MatchInfo> {
-        return searchMemory(value, 8, dataType, context, { bytes ->
-            ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).double
-        }, regions, customFilter)
+        return searchMemory(value, 8, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).double },
+            regions, customFilter
+        )
     }
 
     suspend fun filterAddressesAuto(
-        matchs: List<MatchInfo>,
+        matches: List<MatchInfo>,
         targetValue: String,
         context: Context
-    ): List<MatchInfo> {
-        return matchs.filter { match ->
-            when (match.valuetype.lowercase()) {
-                "int" -> {
-                    val readValue = HGMem().readMem(pid, match.address, 4, context).getOrElse { null }
-                    if (readValue == null) {
-                        false
-                    } else {
-                        val value = ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).int
-                        value == targetValue.toInt()
+    ): List<MatchInfo> = coroutineScope {
+        matches
+            .map { match ->
+                async {
+                    val isValid = when (match.valuetype.lowercase()) {
+                        "int" -> readAndCompare<Int>(match, 4, targetValue, context)
+                        "long" -> readAndCompare<Long>(match, 8, targetValue, context)
+                        "float" -> readAndCompare<Float>(match, 4, targetValue, context)
+                        "double" -> readAndCompare<Double>(match, 8, targetValue, context)
+                        else -> false
                     }
+                    isValid to match
                 }
-                "long" -> {
-                    val readValue = HGMem().readMem(pid, match.address, 8, context).getOrElse { null }
-                    if (readValue == null) {
-                        false
-                    } else {
-                        val value = ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).long
-                        value == targetValue.toLong()
-                    }
-                }
-                "float" -> {
-                    val readValue = HGMem().readMem(pid, match.address, 4, context).getOrElse { null }
-                    if (readValue == null) {
-                        false
-                    } else {
-                        val value = ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).float
-                        value == targetValue.toFloat()
-                    }
-                }
-                "double" -> {
-                    val readValue = HGMem().readMem(pid, match.address, 8, context).getOrElse { null }
-                    if (readValue == null) {
-                        false
-                    } else {
-                        val value = ByteBuffer.wrap(readValue).order(ByteOrder.LITTLE_ENDIAN).double
-                        value == targetValue.toDouble()
-                    }
-                }
-
-                else -> { throw IllegalArgumentException("Unsupported data type: ${match.valuetype}") }
             }
-        }
+            .awaitAll()
+            .filter { it.first }
+            .map { it.second }
+    }
+
+    private suspend inline fun <reified T> readAndCompare(
+        match: MatchInfo,
+        bytes: Int,
+        target: String,
+        context: Context
+    ): Boolean {
+        return HGMem().readMem(pid, match.address, bytes.toLong(), context)
+            .getOrNull()
+            ?.let { memoryBytes ->
+                try {
+                    val value = ByteBuffer.wrap(memoryBytes)
+                        .order(ByteOrder.LITTLE_ENDIAN)
+                        .let { buf ->
+                            when (T::class) {
+                                Int::class -> buf.int
+                                Long::class -> buf.long
+                                Float::class -> buf.float
+                                Double::class -> buf.double
+                                else -> null
+                            }
+                        }
+
+                    when (T::class) {
+                        Int::class -> value == target.toIntOrNull()
+                        Long::class -> value == target.toLongOrNull()
+                        Float::class -> value == target.toFloatOrNull()
+                        Double::class -> value == target.toDoubleOrNull()
+                        else -> false
+                    }
+                } catch (e: Exception) {
+                    Log.e("MemoryScanner", "Error comparing values", e)
+                    false
+                }
+            } ?: false
     }
 }

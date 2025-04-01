@@ -320,6 +320,13 @@ private fun AddressTableRow(
     onAddressClick: (Int) -> Unit,
     onValueClick: (AddressInfo) -> Unit
 ) {
+    val value = when (item.matchInfo.valuetype.lowercase()) {
+        "int" -> (item.matchInfo.prevValue as Int).toString()
+        "long" -> (item.matchInfo.prevValue as Long).toString()
+        "float" -> (item.matchInfo.prevValue as Float).toString()
+        "double" -> (item.matchInfo.prevValue as Double).toString()
+        else -> "unknown error"
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -358,7 +365,7 @@ private fun AddressTableRow(
                 )
             )
             TableCell(
-                text = item.matchInfo.prevValue,
+                text = value,
                 weight = 0.4f,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.tertiary,
@@ -465,9 +472,16 @@ private fun DialogHandling(
     }
 
     selectedAddressInfo?.let { info ->
+        val value = when (info.matchInfo.valuetype.lowercase()) {
+            "int" -> (info.matchInfo.prevValue as Int).toString()
+            "long" -> (info.matchInfo.prevValue as Long).toString()
+            "float" -> (info.matchInfo.prevValue as Float).toString()
+            "double" -> (info.matchInfo.prevValue as Double).toString()
+            else -> "unknown error"
+        }
         dialogCallback.showInputDialog(
             title = "Edit Value",
-            defaultValue = info.matchInfo.prevValue,
+            defaultValue = value,
             onConfirm = { newValue ->
                 val hgmem = HGMem()
                 context?.let {
@@ -511,7 +525,9 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
             onConfirm = {},
             onDismiss = {}
         )
-        savedAddresList.clear()
+        withContext(Dispatchers.Main) {
+            savedAddresList.clear()
+        }
         isattached().reset()
         isattached().resetLast()
         return
@@ -524,13 +540,16 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
             onConfirm = {},
             onDismiss = {}
         )
-        savedAddresList.clear()
+        withContext(Dispatchers.Main) {
+            savedAddresList.clear()
+        }
         isattached().resetLast()
         return
     }
 
     withContext(Dispatchers.IO) {
-        savedAddresList.forEachIndexed { index, addressInfo ->
+        val newList = mutableListOf<AddressInfo>()
+        savedAddresList.forEach { addressInfo ->
             try {
                 val currentValue = mem.readMemory(
                     pid,
@@ -538,12 +557,21 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
                     addressInfo.matchInfo.valuetype,
                     context
                 )
-                savedAddresList[index] = addressInfo.copy(
-                    matchInfo = addressInfo.matchInfo.copy(prevValue = currentValue)
-                )
+                if (currentValue != 0 && currentValue != 0.0) {
+                    newList.add(
+                        addressInfo.copy(
+                            matchInfo = addressInfo.matchInfo.copy(prevValue = currentValue)
+                        )
+                    )
+                }
             } catch (e: Exception) {
-                savedAddresList.removeAt(index)
+                // Exclude invalid entries from newList
             }
+        }
+
+        withContext(Dispatchers.Main) {
+            savedAddresList.clear()
+            savedAddresList.addAll(newList)
         }
     }
 }

@@ -45,6 +45,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,32 +69,28 @@ import com.yervant.huntgames.backend.Process
 import com.yervant.huntgames.ui.DialogCallback
 import kotlinx.coroutines.isActive
 
-// ======================= drop down options =================
 private var defaultValueInitialized: Boolean = false
 
-// ==================== selected scan options ==============================
 private var scanInputVal: MutableState<String> = mutableStateOf("")
 
-private val scanTypeSelectedOptionIdx = mutableStateOf(0)
-private val valueTypeSelectedOptionIdx = mutableStateOf(0)
+private val scanTypeSelectedOptionIdx = mutableIntStateOf(0)
+private val valueTypeSelectedOptionIdx = mutableIntStateOf(0)
 
-// ================================================================
 private val initialScanDone: MutableState<Boolean> = mutableStateOf(false)
 private val isScanOnGoing: MutableState<Boolean> = mutableStateOf(false)
 
 private val valueTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 
-// ===================================== current matches data =========================
-private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(mutableListOf())
+private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(emptyList())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
 
-data class MatchInfo(val address: Long, val prevValue: String, val valuetype: String)
+data class MatchInfo(val address: Long, val prevValue: Number, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
         inputVal = scanInputVal.value,
-        valueType = valuestype[valueTypeSelectedOptionIdx.value]
+        valueType = valuestype[valueTypeSelectedOptionIdx.intValue]
     )
 }
 
@@ -177,11 +174,15 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
     }
 
     synchronized(matches) {
+        val tempMatches = matches.toMutableList()
         for (i in updatedMatches.indices) {
-            if (i < matches.size) {
-                matches[i] = updatedMatches[i]
+            if (i < tempMatches.size) {
+                tempMatches[i] = updatedMatches[i]
             }
         }
+
+        matches.clear()
+        matches.addAll(tempMatches)
     }
 
     updateMatches()
@@ -190,7 +191,7 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
 var valuestype: List<String> = listOf("int", "long", "float", "double")
 
 fun getscantype(): Int {
-    return scanTypeSelectedOptionIdx.value
+    return scanTypeSelectedOptionIdx.intValue
 }
 
 @Composable
@@ -202,8 +203,8 @@ fun MemoryMenu(
 ) {
 
     if (!defaultValueInitialized) {
-        scanTypeSelectedOptionIdx.value = 0
-        valueTypeSelectedOptionIdx.value = 0
+        scanTypeSelectedOptionIdx.intValue = 0
+        valueTypeSelectedOptionIdx.intValue = 0
         defaultValueInitialized = true
     }
     val isAttached: Boolean = isattached().alert()
@@ -277,9 +278,11 @@ fun MemoryMenu(
                 },
                 newScanEnabled = isAttached && initialScanDone.value && !isScanOnGoing.value,
                 newScanClicked = {
-                    resetMatches()
-                    updateMatches()
-                    initialScanDone.value = false
+                    coroutineScope.launch {
+                        resetMatches()
+                        updateMatches()
+                        initialScanDone.value = false
+                    }
                 },
                 isScanOnGoing = isScanOnGoing
             )
@@ -319,7 +322,7 @@ fun MemoryMenu(
 fun resetMatches() {
     currentMatchesList.value = emptyList()
     matchesStatusText.value = "0 matches"
-    if (matches.isNotEmpty()) {
+    synchronized(matches) {
         matches.clear()
     }
 }
@@ -381,7 +384,10 @@ private fun MatchesTable(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(matches) { match ->
+                items(
+                    items = matches,
+                    key = { match -> match.address }
+                ) { match ->
                     MatchItem(match, onMatchClicked)
                 }
             }
@@ -391,6 +397,15 @@ private fun MatchesTable(
 
 @Composable
 private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
+
+    val value = when (match.valuetype.lowercase()) {
+        "int" -> (match.prevValue as Int).toString()
+        "long" -> (match.prevValue as Long).toString()
+        "float" -> (match.prevValue as Float).toString()
+        "double" -> (match.prevValue as Double).toString()
+        else -> "unknown error"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -420,7 +435,7 @@ private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Value: ${match.prevValue}",
+                    text = "Value: $value",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -443,8 +458,9 @@ fun updateMatches() {
     val mem = Memory()
     val matchesCount: Int = matches.size
     val shownMatchesCount: Int = min(matchesCount, HuntSettings.maxShownMatchesCount)
-    // update ui
-    currentMatchesList.value = mem.listMatches(shownMatchesCount)
+    synchronized(matches) {
+        currentMatchesList.value = mem.listMatches(shownMatchesCount).toMutableList()
+    }
     matchesStatusText.value = "$matchesCount matches (showing ${shownMatchesCount})"
 }
 
@@ -500,8 +516,8 @@ private fun MatchesSetting(
             CustomDropdown(
                 label = "Value Type",
                 options = valuestype,
-                selectedIndex = valueTypeSelectedOptionIdx.value,
-                onOptionSelected = { valueTypeSelectedOptionIdx.value = it },
+                selectedIndex = valueTypeSelectedOptionIdx.intValue,
+                onOptionSelected = { valueTypeSelectedOptionIdx.intValue = it },
                 modifier = Modifier.fillMaxWidth()
             )
 
