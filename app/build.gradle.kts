@@ -12,8 +12,8 @@ android {
         applicationId = "com.yervant.huntgames"
         minSdk = 29
         targetSdk = 35
-        versionCode = 60
-        versionName = "0.8.0"
+        versionCode = 61
+        versionName = "0.8.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("debug")

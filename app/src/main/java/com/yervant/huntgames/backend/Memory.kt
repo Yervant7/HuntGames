@@ -67,18 +67,18 @@ class Memory {
         }
     }
 
-    suspend fun getValues(matchs: List<MatchInfo>, context: Context): List<MatchInfo> {
+    suspend fun getValues(matches: List<MatchInfo>, context: Context): List<MatchInfo> {
         val pid = isattached().currentPid()
-        val newMatchs: MutableList<MatchInfo> = mutableListOf()
+        val newMatches = mutableListOf<MatchInfo>()
 
-        matchs.forEach { match ->
+        matches.forEach { match ->
             val value = readMemory(pid, match.address, match.valuetype, context)
-            if (!(value == 0 || value == 0.0)) {
-                newMatchs.add(MatchInfo(match.address, value, match.valuetype))
+            if (value != 0 && value != 0.0) {
+                newMatches.add(match.copy(prevValue = value))
             }
         }
 
-        return newMatchs
+        return newMatches
     }
 
     suspend fun scanAgainstValue(numValStr: String, context: Context) {
@@ -97,49 +97,25 @@ class Memory {
                             when (match.valuetype) {
                                 "int" -> {
                                     if (match.prevValue.toInt() != valuestr.toInt()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "long" -> {
                                     if (match.prevValue.toLong() != valuestr.toLong()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "float" -> {
                                     if (match.prevValue.toFloat() != valuestr.toFloat()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "double" -> {
                                     if (match.prevValue.toDouble() != valuestr.toDouble()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
                             }
@@ -160,49 +136,25 @@ class Memory {
                             when (match.valuetype) {
                                 "int" -> {
                                     if (match.prevValue.toInt() == valuestr.toInt()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "long" -> {
                                     if (match.prevValue.toLong() == valuestr.toLong()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "float" -> {
                                     if (match.prevValue.toFloat() == valuestr.toFloat()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
 
                                 "double" -> {
                                     if (match.prevValue.toDouble() == valuestr.toDouble()) {
-                                        results.add(
-                                            MatchInfo(
-                                                match.address,
-                                                valuestr,
-                                                match.valuetype
-                                            )
-                                        )
+                                        results.add(match.copy(prevValue = valuestr))
                                     }
                                 }
                             }

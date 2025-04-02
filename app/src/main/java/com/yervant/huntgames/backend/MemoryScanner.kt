@@ -17,6 +17,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.UUID
 
 class MemoryScanner(private val pid: Int) {
 
@@ -226,7 +227,7 @@ class MemoryScanner(private val pid: Int) {
                         if (matchesTarget(memoryChunk, i, targetBytes)) {
                             val valueBytes = memoryChunk.copyOfRange(i, i + size)
                             val value = converter(valueBytes)
-                            matches.add(MatchInfo(chunkAddress + i, value, dataType))
+                            matches.add(MatchInfo(UUID.randomUUID().toString(), chunkAddress + i, value, dataType))
                         }
                     }
                     matches

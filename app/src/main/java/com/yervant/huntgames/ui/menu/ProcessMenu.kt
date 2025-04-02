@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yervant.huntgames.R
@@ -39,6 +41,7 @@ class isattached {
     fun reset() {
         svpid = -1
         success = false
+        attachedStatusString.value = "None"
     }
     fun resetLast() {
         lastpid = -1
@@ -48,12 +51,17 @@ class isattached {
     }
 }
 
-fun AttachToProcess(
+fun attachToProcess(
     pid: Int,
     onProcessNoExistAnymore: () -> Unit,
     onAttachSuccess: () -> Unit,
 ) {
     if (Process().processIsRunning(pid.toString())) {
+        if (svpid != -1 && svpid != pid) {
+            lastpid = svpid
+        }
+
+        svpid = pid
         success = true
         onAttachSuccess()
     } else {
@@ -78,9 +86,10 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
     }
 
     LaunchedEffect(Unit) {
+        refreshProcList()
         while (isActive) {
-            refreshProcList()
             delay(60.seconds)
+            refreshProcList()
         }
     }
 
@@ -92,12 +101,14 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
     ProcessMenuContent(
         runningProcState = filteredProcList,
         searchQuery = searchQuery,
+        attachedStatus = attachedStatusString.value,
+        currentPid = svpid,
         onAttach = { pid, procName, memory ->
             dialogCallback.showInfoDialog(
                 title = "Hunt Games",
                 message = "Attach to $pid - $procName?",
                 onConfirm = {
-                    AttachToProcess(
+                    attachToProcess(
                         pid = pid.toInt(),
                         onAttachSuccess = {
                             dialogCallback.showInfoDialog(
@@ -107,10 +118,6 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
                                 onDismiss = {}
                             )
                             attachedStatusString.value = "$pid - $procName"
-                            if (svpid != -1) {
-                                lastpid = svpid
-                            }
-                            svpid = pid.toInt()
                         },
                         onProcessNoExistAnymore = {
                             dialogCallback.showInfoDialog(
@@ -133,6 +140,8 @@ fun ProcessMenu(dialogCallback: DialogCallback) {
 private fun ProcessMenuContent(
     runningProcState: List<ProcessInfo>,
     searchQuery: MutableState<String>,
+    attachedStatus: String,
+    currentPid: Int,
     onRefreshClicked: () -> Unit,
     onAttach: (pid: String, procName: String, memory: String) -> Unit,
 ) {
@@ -141,12 +150,57 @@ private fun ProcessMenuContent(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+
+            AttachedProcessIndicator(attachedStatus)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             SearchAndRefreshRow(searchQuery, onRefreshClicked)
 
             if (runningProcState.isEmpty()) {
                 EmptyStateMessage()
             } else {
-                ProcessList(runningProcState, onAttach)
+                ProcessList(
+                    processes = runningProcState,
+                    currentPid = currentPid,
+                    onAttach = onAttach
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachedProcessIndicator(attachedStatus: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = "Attached Process",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = attachedStatus,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
@@ -157,7 +211,10 @@ private fun SearchAndRefreshRow(
     searchQuery: MutableState<String>,
     onRefreshClicked: () -> Unit
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 8.dp)
+    ) {
         OutlinedTextField(
             modifier = Modifier
                 .weight(1f)
@@ -166,7 +223,10 @@ private fun SearchAndRefreshRow(
             onValueChange = { searchQuery.value = it },
             label = { Text("Search processes") },
             leadingIcon = {
-                Icons.Filled.Search
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = "Search"
+                )
             },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -190,6 +250,7 @@ private fun SearchAndRefreshRow(
 @Composable
 private fun ProcessList(
     processes: List<ProcessInfo>,
+    currentPid: Int,
     onAttach: (String, String, String) -> Unit
 ) {
     LazyColumn(
@@ -199,8 +260,12 @@ private fun ProcessList(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         itemsIndexed(processes) { index, process ->
+            // Verifica se este processo é o atualmente anexado
+            val isAttached = currentPid == process.pid.toInt()
+
             ProcessListItem(
                 process = process,
+                isAttached = isAttached,
                 onAttach = onAttach,
                 modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
             )
@@ -218,6 +283,7 @@ private fun ProcessList(
 @Composable
 private fun ProcessListItem(
     process: ProcessInfo,
+    isAttached: Boolean,
     onAttach: (String, String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -230,7 +296,9 @@ private fun ProcessListItem(
             .fillMaxWidth()
             .clickable { onAttach(process.pid, process.packageName, process.memory) },
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
+        color = if (isAttached)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        else MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp
     ) {
         Row(
@@ -238,13 +306,29 @@ private fun ProcessListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.weight(0.4f)) {
-                Text(
-                    text = process.packageName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Column(modifier = Modifier.weight(0.7f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = process.packageName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, false)
+                    )
+
+                    if (isAttached) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Attached",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
                 Text(
                     text = "PID: ${process.pid}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -256,7 +340,7 @@ private fun ProcessListItem(
                 text = formattedMemory,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(0.2f)
+                modifier = Modifier.weight(0.3f, false)
             )
         }
     }

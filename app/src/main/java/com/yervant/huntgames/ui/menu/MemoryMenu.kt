@@ -68,6 +68,7 @@ import com.yervant.huntgames.backend.Memory.Companion.matches
 import com.yervant.huntgames.backend.Process
 import com.yervant.huntgames.ui.DialogCallback
 import kotlinx.coroutines.isActive
+import java.util.UUID
 
 private var defaultValueInitialized: Boolean = false
 
@@ -85,7 +86,7 @@ private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(emptyList())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
 
-data class MatchInfo(val address: Long, val prevValue: Number, val valuetype: String)
+data class MatchInfo(val id: String = UUID.randomUUID().toString(), val address: Long, val prevValue: Number, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
@@ -118,11 +119,6 @@ fun InitialMemoryMenu(context: Context?, dialogCallback: DialogCallback) {
 
 suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
     val mem = Memory()
-    val firstThousand = synchronized(matches) {
-        if (matches.isEmpty()) return
-        matches.take(1000)
-    }
-
     val pid = isattached().currentPid()
     val lastPid = isattached().lastPid()
 
@@ -143,8 +139,9 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
             onConfirm = {},
             onDismiss = {}
         )
+
         resetMatches()
-        updateMatches()
+        initialScanDone.value = false
         isattached().reset()
         isattached().resetLast()
         return
@@ -157,10 +154,19 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
             onConfirm = {},
             onDismiss = {}
         )
+
         resetMatches()
-        updateMatches()
+        initialScanDone.value = false
         isattached().resetLast()
         return
+    }
+
+    synchronized(matches) {
+        if (matches.isEmpty()) return
+    }
+
+    val firstThousand = synchronized(matches) {
+        matches.take(1000)
     }
 
     val values = mem.getValues(firstThousand, context)
@@ -320,11 +326,12 @@ fun MemoryMenu(
 }
 
 fun resetMatches() {
-    currentMatchesList.value = emptyList()
-    matchesStatusText.value = "0 matches"
     synchronized(matches) {
         matches.clear()
     }
+    currentMatchesList.value = emptyList()
+    matchesStatusText.value = "0 matches"
+    scanInputVal.value = ""
 }
 
 @Composable
@@ -386,7 +393,7 @@ private fun MatchesTable(
             ) {
                 items(
                     items = matches,
-                    key = { match -> match.address }
+                    key = { match -> match.id }
                 ) { match ->
                     MatchItem(match, onMatchClicked)
                 }
@@ -456,12 +463,22 @@ private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
 
 fun updateMatches() {
     val mem = Memory()
-    val matchesCount: Int = matches.size
-    val shownMatchesCount: Int = min(matchesCount, HuntSettings.maxShownMatchesCount)
+    val matchesCount: Int
+    val shownMatchesCount: Int
+
     synchronized(matches) {
-        currentMatchesList.value = mem.listMatches(shownMatchesCount).toMutableList()
+        matchesCount = matches.size
+        shownMatchesCount = min(matchesCount, HuntSettings.maxShownMatchesCount)
+
+        if (matchesCount > 0) {
+            currentMatchesList.value = mem.listMatches(shownMatchesCount).toMutableList()
+        } else {
+            currentMatchesList.value = emptyList()
+        }
     }
-    matchesStatusText.value = "$matchesCount matches (showing ${shownMatchesCount})"
+
+    matchesStatusText.value = "$matchesCount matches" +
+            if (matchesCount > 0) " (showing $shownMatchesCount)" else ""
 }
 
 @Composable
