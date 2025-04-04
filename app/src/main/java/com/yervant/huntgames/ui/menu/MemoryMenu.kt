@@ -86,12 +86,17 @@ private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(emptyList())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
 
+private val operatorOptions = listOf("=", "!=", ">", "<", ">=", "<=")
+private val operatorSelectedOptionIdx = mutableIntStateOf(0)
+
 data class MatchInfo(val id: String = UUID.randomUUID().toString(), val address: Long, val prevValue: Number, val valuetype: String)
 
 fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
         inputVal = scanInputVal.value,
-        valueType = valuestype[valueTypeSelectedOptionIdx.intValue]
+        valueType = valuestype[valueTypeSelectedOptionIdx.intValue],
+        operator = operatorOptions[operatorSelectedOptionIdx.intValue],
+        scanType = scanTypeOptions[scanTypeSelectedOptionIdx.intValue]
     )
 }
 
@@ -259,7 +264,6 @@ fun MemoryMenu(
             )
             MatchesSetting(
                 modifier = matchesSettingModifier,
-                scanTypeSelectedOptionIdx = scanTypeSelectedOptionIdx,
                 scanInputVal = scanInputVal,
                 nextScanEnabled = isAttached && !isScanOnGoing.value,
                 nextScanClicked = {
@@ -290,7 +294,6 @@ fun MemoryMenu(
                         initialScanDone.value = false
                     }
                 },
-                isScanOnGoing = isScanOnGoing
             )
         }
 
@@ -484,13 +487,11 @@ fun updateMatches() {
 @Composable
 private fun MatchesSetting(
     modifier: Modifier = Modifier,
-    scanTypeSelectedOptionIdx: MutableState<Int>,
     scanInputVal: MutableState<String>,
     nextScanEnabled: Boolean,
     nextScanClicked: () -> Unit,
     newScanEnabled: Boolean,
     newScanClicked: () -> Unit,
-    isScanOnGoing: MutableState<Boolean>
 ) {
     Card(
         modifier = modifier,
@@ -525,8 +526,16 @@ private fun MatchesSetting(
             CustomDropdown(
                 label = "Scan Type",
                 options = scanTypeOptions,
-                selectedIndex = scanTypeSelectedOptionIdx.value,
-                onOptionSelected = { scanTypeSelectedOptionIdx.value = it },
+                selectedIndex = scanTypeSelectedOptionIdx.intValue,
+                onOptionSelected = { scanTypeSelectedOptionIdx.intValue = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            CustomDropdown(
+                label = "Operator",
+                options = operatorOptions,
+                selectedIndex = operatorSelectedOptionIdx.intValue,
+                onOptionSelected = { operatorSelectedOptionIdx.intValue = it },
                 modifier = Modifier.fillMaxWidth()
             )
 

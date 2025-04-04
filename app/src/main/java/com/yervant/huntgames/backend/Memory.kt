@@ -81,12 +81,14 @@ class Memory {
         return newMatches
     }
 
-    suspend fun scanAgainstValue(numValStr: String, context: Context) {
+    suspend fun scanValues(numValStr: String, context: Context) {
         try {
             val pid = isattached().currentPid()
             val results: MutableList<MatchInfo> = mutableListOf()
             val scantype = getscantype()
             val localMatches = synchronized(matches) { matches.toList() }
+            val scanOptions = getCurrentScanOption()
+            val regions = getSelectedRegions()
 
             if (scantype == 1 || scantype == 2) {
                 if (scantype == 1) {
@@ -169,52 +171,65 @@ class Memory {
                     }
                 }
             } else {
-                if (localMatches.isEmpty()) {
-
-                    val scanOptions = getCurrentScanOption()
-                    val regions = getSelectedRegions()
-                    val res = when (scanOptions.valueType.lowercase()) {
-                        "int" -> {
-                            MemoryScanner(pid).searchInt(
-                                numValStr.toInt(),
-                                scanOptions.valueType,
-                                context,
-                                regions,
-                            )
-                        }
-
-                        "long" -> {
-                            MemoryScanner(pid).searchLong(
-                                numValStr.toLong(),
-                                scanOptions.valueType,
-                                context,
-                                regions,
-                            )
-                        }
-
-                        "float" -> {
-                            MemoryScanner(pid).searchFloat(
-                                numValStr.toFloat(),
-                                scanOptions.valueType,
-                                context,
-                                regions,
-                            )
-                        }
-
-                        "double" -> {
-                            MemoryScanner(pid).searchDouble(
-                                numValStr.toDouble(),
-                                scanOptions.valueType,
-                                context,
-                                regions,
-                            )
-                        }
-                        else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
-                    }
+                if (numValStr.contains(";") && numValStr.contains(":")) {
+                    val res = MemoryScanner(pid).searchGroupValues(
+                        groupQuery = numValStr,
+                        dataType = scanOptions.valueType,
+                        context = context,
+                        regions = regions,
+                        operator = scanOptions.operator
+                    )
                     results.addAll(res)
                 } else {
-                    val matchs = MemoryScanner(pid).filterAddressesAuto(localMatches, numValStr, context)
-                    results.addAll(matchs)
+                    if (localMatches.isEmpty()) {
+                        val res = when (scanOptions.valueType.lowercase()) {
+                            "int" -> {
+                                MemoryScanner(pid).searchInt(
+                                    numValStr.toInt(),
+                                    scanOptions.valueType,
+                                    context,
+                                    regions,
+                                    operator = scanOptions.operator
+                                )
+                            }
+
+                            "long" -> {
+                                MemoryScanner(pid).searchLong(
+                                    numValStr.toLong(),
+                                    scanOptions.valueType,
+                                    context,
+                                    regions,
+                                    operator = scanOptions.operator
+                                )
+                            }
+
+                            "float" -> {
+                                MemoryScanner(pid).searchFloat(
+                                    numValStr.toFloat(),
+                                    scanOptions.valueType,
+                                    context,
+                                    regions,
+                                    operator = scanOptions.operator
+                                )
+                            }
+
+                            "double" -> {
+                                MemoryScanner(pid).searchDouble(
+                                    numValStr.toDouble(),
+                                    scanOptions.valueType,
+                                    context,
+                                    regions,
+                                    operator = scanOptions.operator
+                                )
+                            }
+
+                            else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
+                        }
+                        results.addAll(res)
+                    } else {
+                        val matchs = MemoryScanner(pid).filterAddressesAuto(localMatches, numValStr, context)
+                        results.addAll(matchs)
+                    }
                 }
                 if (results.isEmpty()) {
                     Log.d("Memory", "No results to write")

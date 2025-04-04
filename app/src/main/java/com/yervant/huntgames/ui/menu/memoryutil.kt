@@ -7,7 +7,9 @@ import kotlinx.coroutines.withContext
 
 data class ScanOptions(
     val inputVal: String,
-    val valueType: String
+    val valueType: String,
+    val operator: String,
+    val scanType: String
 )
 
 suspend fun onNextScanClicked(
@@ -21,20 +23,25 @@ suspend fun onNextScanClicked(
     try {
         withContext(Dispatchers.IO) {
             val mem = Memory()
-            when (scanOptions.valueType.lowercase()) {
-                "int" -> scanOptions.inputVal.toIntOrNull()
-                    ?: throw Exception("Input value is not valid for data type")
-                "long" -> scanOptions.inputVal.toLongOrNull()
-                    ?: throw Exception("Input value is not valid for data type")
-                "float" -> scanOptions.inputVal.toFloatOrNull()
-                    ?: throw Exception("Input value is not valid for data type")
-                "double" -> scanOptions.inputVal.toDoubleOrNull()
-                    ?: throw Exception("Input value is not valid for data type")
+            if (!(scanOptions.inputVal.contains(";") && scanOptions.inputVal.contains(":"))) {
+                when (scanOptions.valueType.lowercase()) {
+                    "int" -> scanOptions.inputVal.toIntOrNull()
+                        ?: throw Exception("Input value is not valid for data type")
+
+                    "long" -> scanOptions.inputVal.toLongOrNull()
+                        ?: throw Exception("Input value is not valid for data type")
+
+                    "float" -> scanOptions.inputVal.toFloatOrNull()
+                        ?: throw Exception("Input value is not valid for data type")
+
+                    "double" -> scanOptions.inputVal.toDoubleOrNull()
+                        ?: throw Exception("Input value is not valid for data type")
+                }
             }
             if (scanOptions.inputVal.contains(" ")) {
                 throw Exception("Input value cannot contain spaces")
             } else {
-                mem.scanAgainstValue(
+                mem.scanValues(
                     scanOptions.inputVal,
                     context
                 )
