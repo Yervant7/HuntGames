@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,7 +66,9 @@ import kotlin.time.Duration.Companion.seconds
 class AddressInfo(
     val matchInfo: MatchInfo,
     val numType: String,
-)
+) {
+    var isFrozen by mutableStateOf(false)
+}
 
 private val savedAddresList = mutableStateListOf<AddressInfo>()
 
@@ -120,7 +124,16 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
                             item = item,
                             index = index,
                             onAddressClick = { selectedAddressIndex = index },
-                            onValueClick = { selectedAddressInfo = item }
+                            onValueClick = { selectedAddressInfo = item },
+                            onFreezeToggle = { addressInfo, isFrozen ->
+                                if (isFrozen) {
+                                    coroutineScope.launch {
+                                        Hunt().freezeAddress(addressInfo, context!!)
+                                    }
+                                } else {
+                                    Hunt().unfreezeAddress(addressInfo)
+                                }
+                            }
                         )
                         if (index < savedAddresList.lastIndex) {
                             HorizontalDivider(
@@ -288,7 +301,7 @@ private fun AddressTableHeader() {
     ) {
         TableCell(
             text = "Address",
-            weight = 0.4f,
+            weight = 0.3f,
             textStyle = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -304,7 +317,15 @@ private fun AddressTableHeader() {
         )
         TableCell(
             text = "Value",
-            weight = 0.4f,
+            weight = 0.3f,
+            textStyle = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        )
+        TableCell(
+            text = "Freeze",
+            weight = 0.2f,
             textStyle = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -318,7 +339,8 @@ private fun AddressTableRow(
     item: AddressInfo,
     index: Int,
     onAddressClick: (Int) -> Unit,
-    onValueClick: (AddressInfo) -> Unit
+    onValueClick: (AddressInfo) -> Unit,
+    onFreezeToggle: (AddressInfo, Boolean) -> Unit
 ) {
     val value = when (item.matchInfo.valuetype.lowercase()) {
         "int" -> (item.matchInfo.prevValue as Int).toString()
@@ -327,15 +349,12 @@ private fun AddressTableRow(
         "double" -> (item.matchInfo.prevValue as Double).toString()
         else -> "unknown error"
     }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = LocalIndication.current,
-                onClick = { onAddressClick(index) }
-            ),
+            .clickable { onAddressClick(index) },
         elevation = CardDefaults.cardElevation(2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -350,7 +369,7 @@ private fun AddressTableRow(
         ) {
             TableCell(
                 text = "0x${item.matchInfo.address.toString(16).uppercase(Locale.ROOT)}",
-                weight = 0.4f,
+                weight = 0.3f,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.primary,
                     fontFamily = FontFamily.Monospace
@@ -366,13 +385,26 @@ private fun AddressTableRow(
             )
             TableCell(
                 text = value,
-                weight = 0.4f,
+                weight = 0.3f,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.tertiary,
                     fontWeight = FontWeight.Medium
                 ),
                 onClick = { onValueClick(item) }
             )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.2f)
+                    .wrapContentSize(Alignment.Center)
+            ) {
+                Switch(
+                    checked = item.isFrozen,
+                    onCheckedChange = { newValue ->
+                        item.isFrozen = newValue
+                        onFreezeToggle(item, newValue)
+                    }
+                )
+            }
         }
     }
 }
@@ -565,7 +597,10 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
                     )
                 }
             } catch (e: Exception) {
-                // Exclude invalid entries from newList
+                withContext(Dispatchers.Main) {
+                    Hunt().unfreezeAddress(addressInfo)
+                    addressInfo.isFrozen = false
+                }
             }
         }
 

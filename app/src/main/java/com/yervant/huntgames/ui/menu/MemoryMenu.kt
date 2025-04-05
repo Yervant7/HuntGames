@@ -74,14 +74,12 @@ private var defaultValueInitialized: Boolean = false
 
 private var scanInputVal: MutableState<String> = mutableStateOf("")
 
-private val scanTypeSelectedOptionIdx = mutableIntStateOf(0)
 private val valueTypeSelectedOptionIdx = mutableIntStateOf(0)
 
 private val initialScanDone: MutableState<Boolean> = mutableStateOf(false)
 private val isScanOnGoing: MutableState<Boolean> = mutableStateOf(false)
 
 private val valueTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
-private val scanTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
 
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(emptyList())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
@@ -95,8 +93,7 @@ fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
         inputVal = scanInputVal.value,
         valueType = valuestype[valueTypeSelectedOptionIdx.intValue],
-        operator = operatorOptions[operatorSelectedOptionIdx.intValue],
-        scanType = scanTypeOptions[scanTypeSelectedOptionIdx.intValue]
+        operator = operatorOptions[operatorSelectedOptionIdx.intValue]
     )
 }
 
@@ -201,10 +198,6 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
 
 var valuestype: List<String> = listOf("int", "long", "float", "double")
 
-fun getscantype(): Int {
-    return scanTypeSelectedOptionIdx.intValue
-}
-
 @Composable
 fun MemoryMenu(
     snackbarHostState: SnackbarHostState,
@@ -214,13 +207,11 @@ fun MemoryMenu(
 ) {
 
     if (!defaultValueInitialized) {
-        scanTypeSelectedOptionIdx.intValue = 0
         valueTypeSelectedOptionIdx.intValue = 0
         defaultValueInitialized = true
     }
     val isAttached: Boolean = isattached().alert()
     valueTypeEnabled.value = isAttached && !initialScanDone.value
-    scanTypeEnabled.value = isAttached
 
     val showErrorDialog = remember { mutableStateOf(false) }
     val errorDialogMsg = remember { mutableStateOf("") }
@@ -524,14 +515,6 @@ private fun MatchesSetting(
             )
 
             CustomDropdown(
-                label = "Scan Type",
-                options = scanTypeOptions,
-                selectedIndex = scanTypeSelectedOptionIdx.intValue,
-                onOptionSelected = { scanTypeSelectedOptionIdx.intValue = it },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            CustomDropdown(
                 label = "Operator",
                 options = operatorOptions,
                 selectedIndex = operatorSelectedOptionIdx.intValue,
@@ -660,7 +643,3 @@ private fun ScanButton(
         }
     }
 }
-
-private val scanTypeOptions = listOf(
-    "ACCURATE_VAL", "CHANGED_VAL", "UNCHANGED_VAL"
-)

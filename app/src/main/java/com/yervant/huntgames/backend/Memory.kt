@@ -5,7 +5,6 @@ import android.util.Log
 import com.yervant.huntgames.ui.menu.MatchInfo
 import com.yervant.huntgames.ui.menu.getCurrentScanOption
 import com.yervant.huntgames.ui.menu.getSelectedRegions
-import com.yervant.huntgames.ui.menu.getscantype
 import com.yervant.huntgames.ui.menu.isattached
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -85,160 +84,124 @@ class Memory {
         try {
             val pid = isattached().currentPid()
             val results: MutableList<MatchInfo> = mutableListOf()
-            val scantype = getscantype()
             val localMatches = synchronized(matches) { matches.toList() }
             val scanOptions = getCurrentScanOption()
             val regions = getSelectedRegions()
-
-            if (scantype == 1 || scantype == 2) {
-                if (scantype == 1) {
-                    localMatches.forEach { match ->
-                        val valuestr =
-                            readMemory(pid, match.address, match.valuetype, context)
-                        if (!(valuestr == 0 || valuestr == 0.0)) {
-                            when (match.valuetype) {
-                                "int" -> {
-                                    if (match.prevValue.toInt() != valuestr.toInt()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
-
-                                "long" -> {
-                                    if (match.prevValue.toLong() != valuestr.toLong()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
-
-                                "float" -> {
-                                    if (match.prevValue.toFloat() != valuestr.toFloat()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
-
-                                "double" -> {
-                                    if (match.prevValue.toDouble() != valuestr.toDouble()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
-                            }
-                        }
+            if (numValStr.contains(";") && numValStr.contains(":")) {
+                val res = MemoryScanner(pid).searchGroupValues(
+                    groupQuery = numValStr,
+                    dataType = scanOptions.valueType,
+                    context = context,
+                    regions = regions,
+                    operator = scanOptions.operator
+                )
+                results.addAll(res)
+            } else if (numValStr.contains("..")) {
+                val values = numValStr.split("..")
+                val res = when (scanOptions.valueType.lowercase()) {
+                    "int" -> {
+                        MemoryScanner(pid).searchRangeInt(
+                            values[0].trim().toInt(),
+                            values[1].trim().toInt(),
+                            scanOptions.valueType,
+                            context,
+                            regions,
+                        )
                     }
-                    if (results.isEmpty()) {
-                        Log.d("Memory", "No results to write")
-                    }
-                    synchronized(matches) {
-                        matches.clear()
-                        matches.addAll(results)
-                    }
-                } else {
-                    localMatches.forEach { match ->
-                        val valuestr =
-                            readMemory(pid, match.address, match.valuetype, context)
-                        if (!(valuestr == 0 || valuestr == 0.0)) {
-                            when (match.valuetype) {
-                                "int" -> {
-                                    if (match.prevValue.toInt() == valuestr.toInt()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
 
-                                "long" -> {
-                                    if (match.prevValue.toLong() == valuestr.toLong()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
+                    "long" -> {
+                        MemoryScanner(pid).searchRangeLong(
+                            values[0].trim().toLong(),
+                            values[1].trim().toLong(),
+                            scanOptions.valueType,
+                            context,
+                            regions,
+                        )
+                    }
 
-                                "float" -> {
-                                    if (match.prevValue.toFloat() == valuestr.toFloat()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
+                    "float" -> {
+                        MemoryScanner(pid).searchRangeFloat(
+                            values[0].trim().toFloat(),
+                            values[1].trim().toFloat(),
+                            scanOptions.valueType,
+                            context,
+                            regions,
+                        )
+                    }
 
-                                "double" -> {
-                                    if (match.prevValue.toDouble() == valuestr.toDouble()) {
-                                        results.add(match.copy(prevValue = valuestr))
-                                    }
-                                }
-                            }
-                        }
+                    "double" -> {
+                        MemoryScanner(pid).searchRangeDouble(
+                            values[0].trim().toDouble(),
+                            values[1].trim().toDouble(),
+                            scanOptions.valueType,
+                            context,
+                            regions,
+                        )
                     }
-                    if (results.isEmpty()) {
-                        Log.d("Memory", "No results to write")
-                    }
-                    synchronized(matches) {
-                        matches.clear()
-                        matches.addAll(results)
-                    }
+
+                    else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
                 }
+                results.addAll(res)
             } else {
-                if (numValStr.contains(";") && numValStr.contains(":")) {
-                    val res = MemoryScanner(pid).searchGroupValues(
-                        groupQuery = numValStr,
-                        dataType = scanOptions.valueType,
-                        context = context,
-                        regions = regions,
-                        operator = scanOptions.operator
-                    )
+                if (localMatches.isEmpty()) {
+                    val res = when (scanOptions.valueType.lowercase()) {
+                        "int" -> {
+                            MemoryScanner(pid).searchInt(
+                                numValStr.toInt(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                                operator = scanOptions.operator
+                            )
+                        }
+
+                        "long" -> {
+                            MemoryScanner(pid).searchLong(
+                                numValStr.toLong(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                                operator = scanOptions.operator
+                            )
+                        }
+
+                        "float" -> {
+                            MemoryScanner(pid).searchFloat(
+                                numValStr.toFloat(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                                operator = scanOptions.operator
+                            )
+                        }
+
+                        "double" -> {
+                            MemoryScanner(pid).searchDouble(
+                                numValStr.toDouble(),
+                                scanOptions.valueType,
+                                context,
+                                regions,
+                                operator = scanOptions.operator
+                            )
+                        }
+
+                        else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
+                    }
                     results.addAll(res)
                 } else {
-                    if (localMatches.isEmpty()) {
-                        val res = when (scanOptions.valueType.lowercase()) {
-                            "int" -> {
-                                MemoryScanner(pid).searchInt(
-                                    numValStr.toInt(),
-                                    scanOptions.valueType,
-                                    context,
-                                    regions,
-                                    operator = scanOptions.operator
-                                )
-                            }
-
-                            "long" -> {
-                                MemoryScanner(pid).searchLong(
-                                    numValStr.toLong(),
-                                    scanOptions.valueType,
-                                    context,
-                                    regions,
-                                    operator = scanOptions.operator
-                                )
-                            }
-
-                            "float" -> {
-                                MemoryScanner(pid).searchFloat(
-                                    numValStr.toFloat(),
-                                    scanOptions.valueType,
-                                    context,
-                                    regions,
-                                    operator = scanOptions.operator
-                                )
-                            }
-
-                            "double" -> {
-                                MemoryScanner(pid).searchDouble(
-                                    numValStr.toDouble(),
-                                    scanOptions.valueType,
-                                    context,
-                                    regions,
-                                    operator = scanOptions.operator
-                                )
-                            }
-
-                            else -> throw IllegalArgumentException("Unsupported data type: ${scanOptions.valueType}")
-                        }
-                        results.addAll(res)
-                    } else {
-                        val matchs = MemoryScanner(pid).filterAddressesAuto(localMatches, numValStr, context)
-                        results.addAll(matchs)
-                    }
-                }
-                if (results.isEmpty()) {
-                    Log.d("Memory", "No results to write")
-                }
-                synchronized(matches) {
-                    matches.clear()
-                    matches.addAll(results)
+                    val matchs =
+                        MemoryScanner(pid).filterAddressesAuto(localMatches, numValStr, context)
+                    results.addAll(matchs)
                 }
             }
+            if (results.isEmpty()) {
+                Log.d("Memory", "No results to write")
+            }
+            synchronized(matches) {
+                matches.clear()
+                matches.addAll(results)
+            }
+
         } catch (e: Exception) {
             e.printStackTrace()
             Log.e("MemoryScan", "An error occurred: ${e.message}")

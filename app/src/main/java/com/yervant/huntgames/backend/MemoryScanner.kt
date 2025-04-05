@@ -259,6 +259,161 @@ class MemoryScanner(private val pid: Int) {
             }
     }
 
+    private suspend inline fun <reified T : Number> searchMemoryRange(
+        minValue: T,
+        maxValue: T,
+        size: Int,
+        dataType: String,
+        context: Context,
+        noinline converter: (ByteArray) -> T,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null
+    ): List<MatchInfo> {
+        return searchMemoryBytesRange(
+            minValue = minValue,
+            maxValue = maxValue,
+            size = size,
+            dataType = dataType,
+            context = context,
+            converter = converter,
+            regions = regions,
+            customFilter = customFilter
+        )
+    }
+
+    private suspend fun <T : Number> searchMemoryBytesRange(
+        minValue: T,
+        maxValue: T,
+        size: Int,
+        dataType: String,
+        context: Context,
+        converter: (ByteArray) -> T,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null
+    ): List<MatchInfo> {
+        val memoryRegions = readMemoryMaps()
+        val channel = Channel<MatchInfo>(Channel.UNLIMITED)
+
+        coroutineScope {
+            val jobs = memoryRegions
+                .filter { it.permissions.contains("r") }
+                .filter { region ->
+                    regions?.any { regionType ->
+                        regionType.matches(region, customFilter)
+                    } ?: true
+                }
+                .map { region ->
+                    launch(Dispatchers.Default) {
+                        processRegionBytesRange(
+                            region = region,
+                            size = size,
+                            context = context,
+                            channel = channel,
+                            converter = converter,
+                            dataType = dataType,
+                            minValue = minValue,
+                            maxValue = maxValue
+                        )
+                    }
+                }
+
+            jobs.joinAll()
+            channel.close()
+        }
+
+        return channel.toList()
+    }
+
+    private suspend fun <T : Number> processRegionBytesRange(
+        region: MemoryRegions,
+        size: Int,
+        context: Context,
+        channel: SendChannel<MatchInfo>,
+        converter: (ByteArray) -> T,
+        dataType: String,
+        minValue: T,
+        maxValue: T
+    ) = coroutineScope {
+        var currentAddress = region.start
+        val regionSize = region.end - region.start
+
+        while (currentAddress < region.end && isActive) {
+            val readSize = minOf(regionSize, 100 * 1024 * 1024).toInt()
+            val chunkAddress = currentAddress
+
+            launch(Dispatchers.IO) {
+                HGMem().readMem(pid, chunkAddress, readSize.toLong(), context)
+                    .onSuccess { memoryChunk ->
+                        processChunkBytesRange(
+                            memoryChunk = memoryChunk,
+                            chunkAddress = chunkAddress,
+                            size = size,
+                            converter = converter,
+                            dataType = dataType,
+                            channel = channel,
+                            minValue = minValue,
+                            maxValue = maxValue
+                        )
+                    }
+            }
+
+            currentAddress += readSize.toLong()
+        }
+    }
+
+    private suspend fun <T : Number> processChunkBytesRange(
+        memoryChunk: ByteArray,
+        chunkAddress: Long,
+        size: Int,
+        converter: (ByteArray) -> T,
+        dataType: String,
+        channel: SendChannel<MatchInfo>,
+        minValue: T,
+        maxValue: T
+    ) = coroutineScope {
+        val chunkLength = memoryChunk.size - size
+        if (chunkLength <= 0) return@coroutineScope
+
+        val numParts = Runtime.getRuntime().availableProcessors() * 2
+        val baseSize = chunkLength / numParts
+        val remainder = chunkLength % numParts
+
+        (0 until numParts)
+            .map { part ->
+                async(Dispatchers.Default) {
+                    val start = part * baseSize + if (part < remainder) part else remainder
+                    val end = start + baseSize + if (part < remainder) 1 else 0
+                    val matches = mutableListOf<MatchInfo>()
+
+                    for (i in start until end) {
+                        val valueBytes = memoryChunk.copyOfRange(i, i + size)
+                        val value = converter(valueBytes)
+
+                        if (compareValuesTypeSafe(value, minValue, ">=") &&
+                            compareValuesTypeSafe(value, maxValue, "<=")) {
+                            matches.add(
+                                MatchInfo(
+                                    UUID.randomUUID().toString(),
+                                    chunkAddress + i,
+                                    value,
+                                    dataType
+                                )
+                            )
+                        }
+                    }
+                    matches
+                }
+            }
+            .awaitAll()
+            .flatten()
+            .forEach {
+                try {
+                    channel.send(it)
+                } catch (_: ClosedSendChannelException) {
+                }
+            }
+    }
+
     suspend fun searchGroupValues(
         groupQuery: String,
         dataType: String,
@@ -410,51 +565,6 @@ class MemoryScanner(private val pid: Int) {
         }
     }
 
-    suspend fun filterValues(
-        matches: List<MatchInfo>,
-        filterExpression: String,
-        context: Context,
-        customOperator: String? = null
-    ): List<MatchInfo> = coroutineScope {
-        val operatorPattern = """([<>=!]+)(.+)""".toRegex()
-        val operatorMatch = operatorPattern.find(filterExpression.trim())
-
-        val operator = customOperator ?: operatorMatch?.groupValues?.get(1) ?: "="
-        val valueStr = if (customOperator != null) {
-            filterExpression.trim()
-        } else {
-            operatorMatch?.groupValues?.get(2)?.trim() ?: filterExpression.trim()
-        }
-
-        matches.map { match ->
-            async {
-                val currentValue = readCurrentValue(match, context) ?: return@async null
-
-                val isMatch = when (match.valuetype.lowercase()) {
-                    "int" -> {
-                        val targetValue = valueStr.toIntOrNull() ?: return@async null
-                        compareValues(currentValue.toInt(), targetValue, operator)
-                    }
-                    "long" -> {
-                        val targetValue = valueStr.toLongOrNull() ?: return@async null
-                        compareValues(currentValue.toLong(), targetValue, operator)
-                    }
-                    "float" -> {
-                        val targetValue = valueStr.toFloatOrNull() ?: return@async null
-                        compareValues(currentValue.toFloat(), targetValue, operator)
-                    }
-                    "double" -> {
-                        val targetValue = valueStr.toDoubleOrNull() ?: return@async null
-                        compareValues(currentValue.toDouble(), targetValue, operator)
-                    }
-                    else -> false
-                }
-
-                if (isMatch) match.copy(prevValue = currentValue) else null
-            }
-        }.awaitAll().filterNotNull()
-    }
-
     private suspend fun readCurrentValue(match: MatchInfo, context: Context): Number? {
         val size = when (match.valuetype.lowercase()) {
             "int", "float" -> 4L
@@ -571,6 +681,62 @@ class MemoryScanner(private val pid: Int) {
         )
     }
 
+    suspend fun searchRangeInt(
+        value: Int,
+        value2: Int,
+        dataType: String,
+        context: Context,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null,
+    ): List<MatchInfo> {
+        return searchMemoryRange(value, value2,4, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).int },
+            regions, customFilter
+        )
+    }
+
+    suspend fun searchRangeLong(
+        value: Long,
+        value2: Long,
+        dataType: String,
+        context: Context,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null,
+    ): List<MatchInfo> {
+        return searchMemoryRange(value, value2,8, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).long },
+            regions, customFilter
+        )
+    }
+
+    suspend fun searchRangeFloat(
+        value: Float,
+        value2: Float,
+        dataType: String,
+        context: Context,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null,
+    ): List<MatchInfo> {
+        return searchMemoryRange(value, value2,4, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).float },
+            regions, customFilter
+        )
+    }
+
+    suspend fun searchRangeDouble(
+        value: Double,
+        value2: Double,
+        dataType: String,
+        context: Context,
+        regions: List<MemoryRegion>? = null,
+        customFilter: String? = null,
+    ): List<MatchInfo> {
+        return searchMemoryRange(value, value2,8, dataType, context,
+            { bytes -> ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).double },
+            regions, customFilter
+        )
+    }
+
     suspend fun filterAddressesAuto(
         matches: List<MatchInfo>,
         targetValue: String,
@@ -616,7 +782,6 @@ class MemoryScanner(private val pid: Int) {
                     try {
                         val buffer = ByteBuffer.wrap(memoryBytes).order(ByteOrder.LITTLE_ENDIAN)
 
-                        // Parse the current value from memory
                         val value: T = when (T::class) {
                             Int::class -> buffer.int as T
                             Long::class -> buffer.long as T
@@ -625,7 +790,6 @@ class MemoryScanner(private val pid: Int) {
                             else -> return false
                         }
 
-                        // Parse the target value from string
                         val targetValue: T = when (T::class) {
                             Int::class -> target.toIntOrNull() as T?
                             Long::class -> target.toLongOrNull() as T?
@@ -634,7 +798,6 @@ class MemoryScanner(private val pid: Int) {
                             else -> null
                         } ?: return false
 
-                        // Compare the values
                         compareValues(value, targetValue, operator)
 
                     } catch (e: Exception) {

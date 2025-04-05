@@ -9,7 +9,6 @@ data class ScanOptions(
     val inputVal: String,
     val valueType: String,
     val operator: String,
-    val scanType: String
 )
 
 suspend fun onNextScanClicked(
@@ -23,7 +22,7 @@ suspend fun onNextScanClicked(
     try {
         withContext(Dispatchers.IO) {
             val mem = Memory()
-            if (!(scanOptions.inputVal.contains(";") && scanOptions.inputVal.contains(":"))) {
+            if (!(scanOptions.inputVal.contains(";") && scanOptions.inputVal.contains(":") || scanOptions.inputVal.contains(".."))) {
                 when (scanOptions.valueType.lowercase()) {
                     "int" -> scanOptions.inputVal.toIntOrNull()
                         ?: throw Exception("Input value is not valid for data type")
