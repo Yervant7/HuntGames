@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui
+package com.yervant.huntmem.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

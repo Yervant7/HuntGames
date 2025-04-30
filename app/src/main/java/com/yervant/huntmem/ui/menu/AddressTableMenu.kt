@@ -1,15 +1,14 @@
-package com.yervant.huntgames.ui.menu
+package com.yervant.huntmem.ui.menu
 
 import android.content.Context
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,11 +49,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yervant.huntgames.backend.HGMem
-import com.yervant.huntgames.backend.Hunt
-import com.yervant.huntgames.backend.Memory
-import com.yervant.huntgames.backend.Process
-import com.yervant.huntgames.ui.DialogCallback
+import com.yervant.huntmem.backend.Editor
+import com.yervant.huntmem.backend.HuntMem
+import com.yervant.huntmem.backend.Memory
+import com.yervant.huntmem.backend.Process
+import com.yervant.huntmem.ui.DialogCallback
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -66,14 +66,13 @@ import kotlin.time.Duration.Companion.seconds
 class AddressInfo(
     val matchInfo: MatchInfo,
     val numType: String,
-) {
-    var isFrozen by mutableStateOf(false)
-}
+    var isFrozen: Boolean = false,
+)
 
 private val savedAddresList = mutableStateListOf<AddressInfo>()
 
 fun AddressTableAddAddress(matchInfo: MatchInfo) {
-    savedAddresList.add(AddressInfo(matchInfo, matchInfo.valuetype))
+    savedAddresList.add(AddressInfo(matchInfo, matchInfo.valueType, false))
 }
 
 @Composable
@@ -87,8 +86,9 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
 
     LaunchedEffect(savedAddresList.isNotEmpty()) {
         while (isActive) {
+            Editor().syncFreezeState(savedAddresList)
             refreshValue(context!!, dialogCallback)
-            delay(10.seconds)
+            delay(5.seconds)
         }
     }
 
@@ -102,7 +102,8 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
         ControlButtonsRow(
             showDeleteDialog = { showDeleteDialog = true },
             showEditDialog = { showEditDialog = true },
-            showFreezeDialog = { showFreezeDialog = true }
+            showFreezeDialog = { showFreezeDialog = true },
+            coroutineScope = coroutineScope
         )
 
         Card(
@@ -125,15 +126,8 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
                             index = index,
                             onAddressClick = { selectedAddressIndex = index },
                             onValueClick = { selectedAddressInfo = item },
-                            onFreezeToggle = { addressInfo, isFrozen ->
-                                if (isFrozen) {
-                                    coroutineScope.launch {
-                                        Hunt().freezeAddress(addressInfo, context!!)
-                                    }
-                                } else {
-                                    Hunt().unfreezeAddress(addressInfo)
-                                }
-                            }
+                            coroutineScope = coroutineScope,
+                            context = context!!
                         )
                         if (index < savedAddresList.lastIndex) {
                             HorizontalDivider(
@@ -143,6 +137,7 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
@@ -168,7 +163,8 @@ fun AddressTableMenu(context: Context?, dialogCallback: DialogCallback) {
 private fun ControlButtonsRow(
     showDeleteDialog: () -> Unit,
     showEditDialog: () -> Unit,
-    showFreezeDialog: () -> Unit
+    showFreezeDialog: () -> Unit,
+    coroutineScope: CoroutineScope
 ) {
     val configuration = LocalConfiguration.current
     val isPortrait = configuration.screenHeightDp > configuration.screenWidthDp
@@ -215,7 +211,14 @@ private fun ControlButtonsRow(
                     icon = Icons.Filled.PlayDisabled,
                     text = "Unfreeze",
                     containerColor = MaterialTheme.colorScheme.secondary,
-                    onClick = { Hunt().unfreezeall() },
+                    onClick = {
+                        coroutineScope.launch {
+                            Editor().unfreezeall(savedAddresList)
+                            savedAddresList.forEach { addrInfo ->
+                                addrInfo.isFrozen = false
+                            }
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -249,7 +252,14 @@ private fun ControlButtonsRow(
                 icon = Icons.Filled.PlayDisabled,
                 text = "Unfreeze",
                 containerColor = MaterialTheme.colorScheme.secondary,
-                onClick = { Hunt().unfreezeall() }
+                onClick = {
+                    coroutineScope.launch {
+                        Editor().unfreezeall(savedAddresList)
+                        savedAddresList.forEach { addrInfo ->
+                            addrInfo.isFrozen = false
+                        }
+                    }
+                },
             )
         }
     }
@@ -340,15 +350,9 @@ private fun AddressTableRow(
     index: Int,
     onAddressClick: (Int) -> Unit,
     onValueClick: (AddressInfo) -> Unit,
-    onFreezeToggle: (AddressInfo, Boolean) -> Unit
+    coroutineScope: CoroutineScope,
+    context: Context
 ) {
-    val value = when (item.matchInfo.valuetype.lowercase()) {
-        "int" -> (item.matchInfo.prevValue as Int).toString()
-        "long" -> (item.matchInfo.prevValue as Long).toString()
-        "float" -> (item.matchInfo.prevValue as Float).toString()
-        "double" -> (item.matchInfo.prevValue as Double).toString()
-        else -> "unknown error"
-    }
 
     Card(
         modifier = Modifier
@@ -376,7 +380,7 @@ private fun AddressTableRow(
                 )
             )
             TableCell(
-                text = item.matchInfo.valuetype,
+                text = item.matchInfo.valueType,
                 weight = 0.2f,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.secondary,
@@ -384,7 +388,7 @@ private fun AddressTableRow(
                 )
             )
             TableCell(
-                text = value,
+                text = item.matchInfo.prevValue.toString(),
                 weight = 0.3f,
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.tertiary,
@@ -400,8 +404,13 @@ private fun AddressTableRow(
                 Switch(
                     checked = item.isFrozen,
                     onCheckedChange = { newValue ->
-                        item.isFrozen = newValue
-                        onFreezeToggle(item, newValue)
+                        coroutineScope.launch {
+                            if (newValue) {
+                                Editor().freezeAddress(item, context)
+                            } else {
+                                Editor().unfreezeAddress(item)
+                            }
+                        }
                     }
                 )
             }
@@ -435,7 +444,7 @@ private fun TableCell(
 private fun DialogHandling(
     context: Context?,
     dialogCallback: DialogCallback,
-    coroutineScope: kotlinx.coroutines.CoroutineScope,
+    coroutineScope: CoroutineScope,
     showDeleteDialog: Boolean,
     showEditDialog: Boolean,
     showFreezeDialog: Boolean,
@@ -466,7 +475,7 @@ private fun DialogHandling(
             onConfirm = { input ->
                 context?.let {
                     coroutineScope.launch {
-                        Hunt().writeall(savedAddresList, input, context)
+                        Editor().writeall(savedAddresList, input, context)
                     }
                 }
                 onDismissEdit()
@@ -482,7 +491,7 @@ private fun DialogHandling(
             onConfirm = { input ->
                 context?.let {
                     coroutineScope.launch {
-                        Hunt().freezeall(savedAddresList, input, context)
+                        Editor().freezeall(savedAddresList, input, context)
                     }
                 }
                 onDismissFreeze()
@@ -504,24 +513,19 @@ private fun DialogHandling(
     }
 
     selectedAddressInfo?.let { info ->
-        val value = when (info.matchInfo.valuetype.lowercase()) {
-            "int" -> (info.matchInfo.prevValue as Int).toString()
-            "long" -> (info.matchInfo.prevValue as Long).toString()
-            "float" -> (info.matchInfo.prevValue as Float).toString()
-            "double" -> (info.matchInfo.prevValue as Double).toString()
-            else -> "unknown error"
-        }
+        val value = info.matchInfo.prevValue.toString()
+
         dialogCallback.showInputDialog(
             title = "Edit Value",
             defaultValue = value,
             onConfirm = { newValue ->
-                val hgmem = HGMem()
+                val huntmem = HuntMem()
                 context?.let {
                     coroutineScope.launch {
-                        hgmem.writeMem(
+                        huntmem.writeMem(
                             isattached().currentPid(),
                             info.matchInfo.address,
-                            info.matchInfo.valuetype,
+                            info.matchInfo.valueType,
                             newValue,
                             context
                         )
@@ -581,25 +585,24 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
 
     withContext(Dispatchers.IO) {
         val newList = mutableListOf<AddressInfo>()
-        savedAddresList.forEach { addressInfo ->
+        savedAddresList.forEach { addrInfo ->
             try {
                 val currentValue = mem.readMemory(
                     pid,
-                    addressInfo.matchInfo.address,
-                    addressInfo.matchInfo.valuetype,
+                    addrInfo.matchInfo.address,
+                    addrInfo.matchInfo.valueType,
                     context
                 )
-                if (currentValue != 0 && currentValue != 0.0) {
-                    newList.add(
-                        addressInfo.copy(
-                            matchInfo = addressInfo.matchInfo.copy(prevValue = currentValue)
-                        )
+                if (currentValue != -1 && currentValue != -1.0) {
+                    val newAddressInfo = addrInfo.copy(
+                        matchInfo = addrInfo.matchInfo.copy(prevValue = currentValue)
                     )
+                    newList.add(newAddressInfo)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Hunt().unfreezeAddress(addressInfo)
-                    addressInfo.isFrozen = false
+                    Editor().unfreezeAddress(addrInfo)
+                    addrInfo.isFrozen = false
                 }
             }
         }
@@ -611,6 +614,6 @@ private suspend fun refreshValue(context: Context, dialogCallback: DialogCallbac
     }
 }
 
-private fun AddressInfo.copy(matchInfo: MatchInfo = this.matchInfo): AddressInfo {
-    return AddressInfo(matchInfo, this.numType)
+fun AddressInfo.copy(matchInfo: MatchInfo = this.matchInfo, isFrozen: Boolean = this.isFrozen): AddressInfo {
+    return AddressInfo(matchInfo, this.numType, isFrozen)
 }

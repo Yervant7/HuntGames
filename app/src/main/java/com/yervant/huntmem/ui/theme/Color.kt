@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui.theme
+package com.yervant.huntmem.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

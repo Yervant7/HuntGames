@@ -1,5 +1,6 @@
-package com.yervant.huntgames.ui.menu
+package com.yervant.huntmem.ui.menu
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,19 +16,24 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.yervant.huntgames.backend.MemoryScanner.MemoryRegion
+import com.yervant.huntmem.backend.MemoryScanner
+import com.yervant.huntmem.backend.MemoryScanner.MemoryRegion
+import com.yervant.huntmem.backend.Process
 
 private var regionsSelected: List<MemoryRegion> = listOf()
 private var customRegionFilter: String? = null
 
 fun getSelectedRegions(): List<MemoryRegion> {
-    return if (regionsSelected.isEmpty()) {
+    return regionsSelected.ifEmpty {
         listOf(
             MemoryRegion.ALLOC,
             MemoryRegion.BSS,
@@ -38,9 +44,11 @@ fun getSelectedRegions(): List<MemoryRegion> {
             MemoryRegion.STACK,
             MemoryRegion.ASHMEM
         )
-    } else {
-        regionsSelected
     }
+}
+
+fun getCustomFilter(): String? {
+    return customRegionFilter
 }
 
 fun setRegions(regions: List<MemoryRegion>, customFilter: String? = null) {
@@ -48,9 +56,22 @@ fun setRegions(regions: List<MemoryRegion>, customFilter: String? = null) {
     customRegionFilter = customFilter
 }
 
+fun calculateRegionSize(pid: Int, region: MemoryRegion, customFilter: String? = null): Float {
+    val memoryMaps = MemoryScanner(pid).readMemoryMaps()
+    val matchingRegions = memoryMaps.filter { region.matches(it, customFilter) }
+
+    val totalBytes = matchingRegions.sumOf { it.end - it.start }
+    return (totalBytes / (1024f * 1024f))
+}
+
+@SuppressLint("DefaultLocale")
+fun formatSize(sizeInMb: Float): String {
+    return String.format("%.2f MB", sizeInMb)
+}
+
 @Composable
 fun SettingsMenu() {
-    val words = listOf(
+    val regions = listOf(
         MemoryRegion.ALLOC,
         MemoryRegion.BSS,
         MemoryRegion.DATA,
@@ -61,8 +82,19 @@ fun SettingsMenu() {
         MemoryRegion.CODE_SYSTEM,
         MemoryRegion.ASHMEM
     )
-    val selectedWords = remember { mutableStateListOf<MemoryRegion>() }
+    val selectedRegions = remember { mutableStateListOf<MemoryRegion>() }
     val customRegion = remember { mutableStateOf("") }
+
+    val regionSizes = remember { mutableStateMapOf<MemoryRegion, Float>() }
+
+    val pid = isattached().currentPid()
+    val lastPid = isattached().lastPid()
+
+    LaunchedEffect(pid != -1 && Process().processIsRunning(pid.toString()) && !(lastPid != -1 && lastPid != pid)) {
+        regions.forEach { region ->
+            regionSizes[region] = calculateRegionSize(pid, region)
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -83,18 +115,16 @@ fun SettingsMenu() {
                         .padding(16.dp)
                         .fillMaxSize()
                 ) {
-
                     LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
+                        modifier = Modifier.weight(1f)
                     ) {
-                        items(words) { region ->
+                        items(regions) { region ->
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
                                 shape = RoundedCornerShape(8.dp),
-                                color = if (selectedWords.contains(region)) {
+                                color = if (selectedRegions.contains(region)) {
                                     MaterialTheme.colorScheme.primaryContainer
                                 } else {
                                     MaterialTheme.colorScheme.surfaceVariant
@@ -107,20 +137,29 @@ fun SettingsMenu() {
                                         .padding(horizontal = 8.dp)
                                 ) {
                                     Checkbox(
-                                        checked = selectedWords.contains(region),
+                                        checked = selectedRegions.contains(region),
                                         onCheckedChange = { checked ->
-                                            if (checked) selectedWords.add(region)
-                                            else selectedWords.remove(region)
+                                            if (checked) selectedRegions.add(region)
+                                            else selectedRegions.remove(region)
                                         },
                                         colors = CheckboxDefaults.colors(
                                             checkedColor = MaterialTheme.colorScheme.primary
                                         )
                                     )
+
                                     Text(
                                         text = region.name,
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f)
+                                    )
+
+                                    Text(
+                                        text = formatSize(regionSizes[region] ?: 0f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(90.dp),
+                                        textAlign = TextAlign.End
                                     )
                                 }
                             }
@@ -153,11 +192,10 @@ fun SettingsMenu() {
                                 if (customRegion.value.isNotBlank()) {
                                     setRegions(listOf(MemoryRegion.CUSTOM), customRegion.value)
                                 } else {
-                                    setRegions(selectedWords.toList())
+                                    setRegions(selectedRegions.toList())
                                 }
                             },
-                            modifier = Modifier
-                                .height(56.dp),
+                            modifier = Modifier.height(56.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary
@@ -166,6 +204,7 @@ fun SettingsMenu() {
                             Text("Save")
                         }
                     }
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
             }
         }

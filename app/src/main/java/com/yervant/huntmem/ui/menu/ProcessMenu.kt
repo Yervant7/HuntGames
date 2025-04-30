@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui.menu
+package com.yervant.huntmem.ui.menu
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,10 +15,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yervant.huntgames.R
-import com.yervant.huntgames.backend.Process
-import com.yervant.huntgames.backend.Process.ProcessInfo
-import com.yervant.huntgames.ui.DialogCallback
+import com.yervant.huntmem.R
+import com.yervant.huntmem.backend.Process
+import com.yervant.huntmem.backend.Process.ProcessInfo
+import com.yervant.huntmem.ui.DialogCallback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -260,7 +260,6 @@ private fun ProcessList(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         itemsIndexed(processes) { index, process ->
-            // Verifica se este processo é o atualmente anexado
             val isAttached = currentPid == process.pid.toInt()
 
             ProcessListItem(
@@ -276,6 +275,10 @@ private fun ProcessList(
                     color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                 )
             }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

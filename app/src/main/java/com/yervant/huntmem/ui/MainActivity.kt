@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui
+package com.yervant.huntmem.ui
 
 import android.Manifest
 import android.content.Context
@@ -20,11 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.activity.compose.setContent
-import com.yervant.huntgames.ui.theme.HuntGamesTheme
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import androidx.core.net.toUri
+import com.yervant.huntmem.ui.theme.HuntMemTheme
 import java.io.IOException
 
 
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             if (Settings.canDrawOverlays(this)) {
                 showMainScreen()
             } else {
-                Toast.makeText(this, "Permissão para exibir sobreposição negada.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permission to display overlay denied.", Toast.LENGTH_SHORT).show()
                 finish()
             }
         }
@@ -98,7 +98,7 @@ class MainActivity : ComponentActivity() {
 
     private fun showMainScreen() {
         setContent {
-            HuntGamesTheme {
+            HuntMemTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

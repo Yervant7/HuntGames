@@ -1,14 +1,14 @@
-package com.yervant.huntgames.ui.menu
+package com.yervant.huntmem.ui.menu
 
 import android.content.Context
-import com.yervant.huntgames.backend.Memory
+import com.yervant.huntmem.backend.Memory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 data class ScanOptions(
     val inputVal: String,
     val valueType: String,
-    val operator: String,
+    val operator: String
 )
 
 suspend fun onNextScanClicked(
@@ -22,7 +22,7 @@ suspend fun onNextScanClicked(
     try {
         withContext(Dispatchers.IO) {
             val mem = Memory()
-            if (!(scanOptions.inputVal.contains(";") && scanOptions.inputVal.contains(":") || scanOptions.inputVal.contains(".."))) {
+            if (!((scanOptions.inputVal.contains(";") && scanOptions.inputVal.contains(":")) || scanOptions.inputVal.contains("0x") || scanOptions.inputVal.contains(".."))) {
                 when (scanOptions.valueType.lowercase()) {
                     "int" -> scanOptions.inputVal.toIntOrNull()
                         ?: throw Exception("Input value is not valid for data type")
@@ -39,6 +39,8 @@ suspend fun onNextScanClicked(
             }
             if (scanOptions.inputVal.contains(" ")) {
                 throw Exception("Input value cannot contain spaces")
+            } else if (scanOptions.inputVal.contains("0x")) {
+                mem.gotoOffset(scanOptions.inputVal, context)
             } else {
                 mem.scanValues(
                     scanOptions.inputVal,

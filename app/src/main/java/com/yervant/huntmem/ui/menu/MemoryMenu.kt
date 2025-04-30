@@ -1,9 +1,9 @@
-package com.yervant.huntgames.ui.menu
+package com.yervant.huntmem.ui.menu
 
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,22 +52,28 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yervant.huntgames.backend.HuntSettings
-import com.yervant.huntgames.backend.Memory
+import com.yervant.huntmem.backend.HuntMem
+import com.yervant.huntmem.backend.HuntSettings
+import com.yervant.huntmem.backend.Memory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.time.Duration.Companion.seconds
-import com.yervant.huntgames.backend.Memory.Companion.matches
-import com.yervant.huntgames.backend.Process
-import com.yervant.huntgames.ui.DialogCallback
+import com.yervant.huntmem.backend.Memory.Companion.matches
+import com.yervant.huntmem.backend.Process
+import com.yervant.huntmem.ui.DialogCallback
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.internal.synchronized
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 private var defaultValueInitialized: Boolean = false
@@ -78,8 +84,11 @@ private val valueTypeSelectedOptionIdx = mutableIntStateOf(0)
 
 private val initialScanDone: MutableState<Boolean> = mutableStateOf(false)
 private val isScanOnGoing: MutableState<Boolean> = mutableStateOf(false)
+private val isRefreshOnGoing: MutableState<Boolean> = mutableStateOf(false)
 
 private val valueTypeEnabled: MutableState<Boolean> = mutableStateOf(false)
+
+private val wpactive: MutableState<Boolean> = mutableStateOf(false)
 
 private var currentMatchesList: MutableState<List<MatchInfo>> = mutableStateOf(emptyList())
 private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches")
@@ -87,7 +96,18 @@ private var matchesStatusText: MutableState<String> = mutableStateOf("0 matches"
 private val operatorOptions = listOf("=", "!=", ">", "<", ">=", "<=")
 private val operatorSelectedOptionIdx = mutableIntStateOf(0)
 
-data class MatchInfo(val id: String = UUID.randomUUID().toString(), val address: Long, val prevValue: Number, val valuetype: String)
+data class MatchInfo(
+    val id: String = UUID.randomUUID().toString(),
+    val address: Long,
+    val prevValue: Number,
+    val valueType: String,
+    val size: Int,
+    val memoryRegion: String = "",
+    val regionType: String = "",           // (HEAP, STACK, etc)
+    val regionStart: Long = 0,
+    val regionEnd: Long = 0,
+    val permissions: String = "",          // (rwx)
+)
 
 fun getCurrentScanOption(): ScanOptions {
     return ScanOptions(
@@ -100,10 +120,12 @@ fun getCurrentScanOption(): ScanOptions {
 @Composable
 fun InitialMemoryMenu(context: Context?, dialogCallback: DialogCallback) {
 
-    LaunchedEffect(matches.isNotEmpty()) {
+    LaunchedEffect(currentMatchesList.value.isNotEmpty()) {
         while (isActive) {
-            refreshValues(context!!, dialogCallback)
-            delay(10.seconds)
+            if (currentMatchesList.value.size < 100) {
+                refreshValues(context!!, dialogCallback)
+            }
+            delay(5.seconds)
         }
     }
     val snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
@@ -119,8 +141,8 @@ fun InitialMemoryMenu(context: Context?, dialogCallback: DialogCallback) {
     }))
 }
 
+@OptIn(InternalCoroutinesApi::class)
 suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
-    val mem = Memory()
     val pid = isattached().currentPid()
     val lastPid = isattached().lastPid()
 
@@ -163,37 +185,25 @@ suspend fun refreshValues(context: Context, dialogCallback: DialogCallback) {
         return
     }
 
-    synchronized(matches) {
-        if (matches.isEmpty()) return
+    if (isScanOnGoing.value) {
+        return
     }
 
-    val firstThousand = synchronized(matches) {
-        matches.take(1000)
-    }
+    isRefreshOnGoing.value = true
 
-    val values = mem.getValues(firstThousand, context)
-
-    val updatedMatches = values.map { value ->
-        MatchInfo(
-            address = value.address,
-            prevValue = value.prevValue,
-            valuetype = value.valuetype
-        )
-    }
-
-    synchronized(matches) {
-        val tempMatches = matches.toMutableList()
-        for (i in updatedMatches.indices) {
-            if (i < tempMatches.size) {
-                tempMatches[i] = updatedMatches[i]
-            }
+    val newList = mutableListOf<MatchInfo>()
+    matches.forEach { match ->
+        val value = Memory().readMemory(pid, match.address, match.valueType, context)
+        if (value != 0 && value != 0.0) {
+            newList.add(match.copy(prevValue = value))
         }
-
-        matches.clear()
-        matches.addAll(tempMatches)
     }
-
+    synchronized(matches) {
+        matches.clear()
+        matches.addAll(newList)
+    }
     updateMatches()
+    isRefreshOnGoing.value = false
 }
 
 var valuestype: List<String> = listOf("int", "long", "float", "double")
@@ -241,6 +251,8 @@ fun MemoryMenu(
                         )
                     }
                 },
+                onMatchLongPress = { match: MatchInfo -> },
+                dialogCallback = dialogCallback,
                 onCopyAllMatchesToAddressTable = {
                     for (matchInfo in currentMatchesList.value)
                         AddressTableAddAddress(matchInfo = matchInfo)
@@ -256,7 +268,7 @@ fun MemoryMenu(
             MatchesSetting(
                 modifier = matchesSettingModifier,
                 scanInputVal = scanInputVal,
-                nextScanEnabled = isAttached && !isScanOnGoing.value,
+                nextScanEnabled = isAttached && !isScanOnGoing.value && !isRefreshOnGoing.value,
                 nextScanClicked = {
                     coroutineScope.launch {
                         onNextScanClicked(
@@ -319,13 +331,13 @@ fun MemoryMenu(
     }
 }
 
+@OptIn(InternalCoroutinesApi::class)
 fun resetMatches() {
     synchronized(matches) {
         matches.clear()
     }
     currentMatchesList.value = emptyList()
     matchesStatusText.value = "0 matches"
-    scanInputVal.value = ""
 }
 
 @Composable
@@ -334,6 +346,8 @@ private fun MatchesTable(
     matches: List<MatchInfo>,
     matchesStatusText: String,
     onMatchClicked: (MatchInfo) -> Unit,
+    onMatchLongPress: (MatchInfo) -> Unit,
+    dialogCallback: DialogCallback,
     onCopyAllMatchesToAddressTable: () -> Unit
 ) {
     Card(
@@ -389,7 +403,7 @@ private fun MatchesTable(
                     items = matches,
                     key = { match -> match.id }
                 ) { match ->
-                    MatchItem(match, onMatchClicked)
+                    MatchItem(match, onMatchClicked, onMatchLongPress, dialogCallback)
                 }
             }
         }
@@ -397,20 +411,57 @@ private fun MatchesTable(
 }
 
 @Composable
-private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
-
-    val value = when (match.valuetype.lowercase()) {
-        "int" -> (match.prevValue as Int).toString()
-        "long" -> (match.prevValue as Long).toString()
-        "float" -> (match.prevValue as Float).toString()
-        "double" -> (match.prevValue as Double).toString()
-        else -> "unknown error"
-    }
+private fun MatchItem(
+    match: MatchInfo,
+    onClick: (MatchInfo) -> Unit = {},
+    onLongClick: (MatchInfo) -> Unit = {},
+    dialogCallback: DialogCallback
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val isLongPressHandled = remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick(match) },
+            .pointerInput(match.id) {
+                detectTapGestures(
+                    onLongPress = {
+                        coroutineScope.launch {
+                            delay(2000)
+                            if (!isLongPressHandled.value) {
+                                isLongPressHandled.value = true
+                                dialogCallback.showInfoDialog(
+                                    title = "HW Watchpoint",
+                                    message = """
+                                        Address: 0x${match.address.toString(16).uppercase()}
+                                        Value: ${match.prevValue}
+                                        Size: ${match.size}
+                                        Type: ${match.valueType}
+                                        Region: ${match.regionType} (${match.memoryRegion})
+                                        Range: 0x${match.regionStart.toString(16)} - 0x${
+                                        match.regionEnd.toString(
+                                            16
+                                        )
+                                    }
+                                        Permissions: ${match.permissions}
+                                    """.trimIndent(),
+                                    onConfirm = {
+                                        onLongClick(match)
+                                        isLongPressHandled.value = false
+                                    },
+                                    onDismiss = {
+                                        isLongPressHandled.value = false
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    onTap = {
+                        onClick(match)
+                        isLongPressHandled.value = false
+                    }
+                )
+            },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(8.dp)
@@ -436,13 +487,13 @@ private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Value: $value",
+                    text = "Value: ${match.prevValue}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Text(
-                    text = match.valuetype.uppercase(),
+                    text = match.valueType.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
@@ -455,6 +506,7 @@ private fun MatchItem(match: MatchInfo, onClick: (MatchInfo) -> Unit) {
     }
 }
 
+@OptIn(InternalCoroutinesApi::class)
 fun updateMatches() {
     val mem = Memory()
     val matchesCount: Int
@@ -465,7 +517,9 @@ fun updateMatches() {
         shownMatchesCount = min(matchesCount, HuntSettings.maxShownMatchesCount)
 
         if (matchesCount > 0) {
-            currentMatchesList.value = mem.listMatches(shownMatchesCount).toMutableList()
+            currentMatchesList.value =
+                mem.listMatches(shownMatchesCount)
+                    .toMutableList()
         } else {
             currentMatchesList.value = emptyList()
         }
@@ -514,13 +568,15 @@ private fun MatchesSetting(
                 )
             )
 
-            CustomDropdown(
-                label = "Operator",
-                options = operatorOptions,
-                selectedIndex = operatorSelectedOptionIdx.intValue,
-                onOptionSelected = { operatorSelectedOptionIdx.intValue = it },
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (initialScanDone.value) {
+                CustomDropdown(
+                    label = "Operator",
+                    options = operatorOptions,
+                    selectedIndex = operatorSelectedOptionIdx.intValue,
+                    onOptionSelected = { operatorSelectedOptionIdx.intValue = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             CustomDropdown(
                 label = "Value Type",
@@ -551,6 +607,7 @@ private fun MatchesSetting(
                     modifier = Modifier.weight(1f)
                 )
             }
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

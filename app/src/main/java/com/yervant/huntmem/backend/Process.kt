@@ -1,4 +1,4 @@
-package com.yervant.huntgames.backend
+package com.yervant.huntmem.backend
 
 import com.topjohnwu.superuser.Shell
 

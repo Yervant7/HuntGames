@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui
+package com.yervant.huntmem.ui
 
 import android.content.ContentValues
 import android.content.Context
@@ -29,7 +29,7 @@ import java.io.OutputStream
 fun MainScreen(openBootPicker: () -> Unit) {
     val ctx = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Settings", "Patch Boot")
+    val tabs = listOf("Home", "Patch Boot")
 
     Column(
         modifier = Modifier
@@ -47,14 +47,14 @@ fun MainScreen(openBootPicker: () -> Unit) {
         }
 
         when (selectedTab) {
-            0 -> SettingsTab(ctx)
+            0 -> HomeTab(ctx)
             1 -> PatchBootTab(openBootPicker, ctx)
         }
     }
 }
 
 @Composable
-private fun SettingsTab(ctx: Context) {
+private fun HomeTab(ctx: Context) {
     var textInput by remember { mutableStateOf("") }
 
     Column(
@@ -146,7 +146,7 @@ private fun PatchBootTab(
                             isPatching = true
                             logs.clear()
                             try {
-                                var key = "12345678"
+                                var key = "yervant7github"
                                 val skey = getSharedKey(ctx, "user_key")
                                 if (!skey.isNullOrEmpty()) {
                                     key = skey

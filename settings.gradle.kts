@@ -20,6 +20,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Hunt Games"
+rootProject.name = "Hunt Memory"
 include(":app")
  

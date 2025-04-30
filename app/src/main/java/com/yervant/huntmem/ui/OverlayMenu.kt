@@ -1,4 +1,4 @@
-package com.yervant.huntgames.ui
+package com.yervant.huntmem.ui
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
@@ -36,12 +37,12 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.yervant.huntgames.R
-import com.yervant.huntgames.ui.menu.AddressTableMenu
-import com.yervant.huntgames.ui.menu.InitialMemoryMenu
-import com.yervant.huntgames.ui.menu.ProcessMenu
-import com.yervant.huntgames.ui.menu.SettingsMenu
-import com.yervant.huntgames.ui.theme.HuntGamesTheme
+import com.yervant.huntmem.R
+import com.yervant.huntmem.ui.menu.AddressTableMenu
+import com.yervant.huntmem.ui.menu.InitialMemoryMenu
+import com.yervant.huntmem.ui.menu.ProcessMenu
+import com.yervant.huntmem.ui.menu.SettingsMenu
+import com.yervant.huntmem.ui.theme.HuntMemTheme
 
 class CustomOverlayView(context: android.content.Context) : View(context) {
     private var onClickCallback: (() -> Unit)? = null
@@ -173,7 +174,6 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
     )
 
     private fun updateViewsOnRotation() {
-        // Salva a posição atual
         lastKnownX = params.x
         lastKnownY = params.y
 
@@ -201,13 +201,11 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
     private fun updateLayoutForCurrentOrientation() {
         val metrics = resources.displayMetrics
         val density = metrics.density
-        val buttonSize = (48 * density).toInt()
+        val buttonSize = (90 * density).toInt()
 
-        // Ajusta o tamanho do botão
         params.width = buttonSize
         params.height = buttonSize
 
-        // Garante que o botão não saia da tela
         if (params.x > metrics.widthPixels - buttonSize) {
             params.x = metrics.widthPixels - buttonSize
         }
@@ -267,20 +265,14 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
             setViewTreeSavedStateRegistryOwner(this@OverlayService)
 
             setContent {
-                Box(
+                Image(
+                    painter = painterResource(id = R.drawable.overlay_icon),
+                    contentDescription = "Floating Button",
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.icon),
-                        contentDescription = "Floating Button",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .padding(8.dp)
-                    )
-                }
+                        .size(90.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
             }
         }
 
@@ -301,7 +293,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
             setViewTreeViewModelStoreOwner(this@OverlayService)
 
             setContent {
-                HuntGamesTheme(darkTheme = true) {
+                HuntMemTheme(darkTheme = true) {
                     MenuContent(
                         onClose = { hideMenu() }
                     )
@@ -347,7 +339,7 @@ class OverlayService : LifecycleService(), SavedStateRegistryOwner, ViewModelSto
         return builder
             .setContentTitle("Overlay Service")
             .setContentText("Service is running")
-            .setSmallIcon(R.drawable.icon)
+            .setSmallIcon(R.drawable.overlay_icon)
             .setContentIntent(pendingIntent)
             .setSilent(true)
             .setOngoing(true)

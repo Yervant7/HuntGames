@@ -5,15 +5,21 @@ plugins {
 }
 
 android {
-    namespace = "com.yervant.huntgames"
+    namespace = "com.yervant.huntmem"
     compileSdk = 35
 
+    ndkVersion = "29.0.13113456 rc1"
+
     defaultConfig {
-        applicationId = "com.yervant.huntgames"
+        applicationId = "com.yervant.huntmem"
         minSdk = 29
         targetSdk = 35
-        versionCode = 64
-        versionName = "0.8.4"
+        versionCode = 90
+        versionName = "1.0.0"
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         signingConfig = signingConfigs.getByName("debug")
